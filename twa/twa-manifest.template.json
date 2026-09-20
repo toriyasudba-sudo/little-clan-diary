@@ -1,0 +1,25 @@
+{
+  "packageId": "school.littleclan.diary",
+  "host": "YOUR-GITHUB-USERNAME.github.io",
+  "startUrl": "/little-clan-diary/",
+  "name": "Little Clan Diary",
+  "launcherName": "Little Clan",
+  "display": "standalone",
+  "themeColor": "#516342",
+  "navigationColor": "#46563a",
+  "navigationColorDark": "#263024",
+  "backgroundColor": "#f7f1e7",
+  "enableNotifications": true,
+  "orientation": "portrait",
+  "appVersion": "1.0.0",
+  "appVersionCode": 1,
+  "minSdkVersion": 23,
+  "fallbackType": "customtabs",
+  "signingKey": {
+    "path": "./android-keystore/little-clan-diary.keystore",
+    "alias": "little-clan-diary"
+  },
+  "iconUrl": "https://YOUR-GITHUB-USERNAME.github.io/little-clan-diary/icons/icon-512.png",
+  "maskableIconUrl": "https://YOUR-GITHUB-USERNAME.github.io/little-clan-diary/icons/icon-512.png",
+  "shortcuts": []
+}
