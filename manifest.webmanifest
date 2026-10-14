@@ -1,0 +1,11 @@
+{
+  "name": "Little Clan Diary",
+  "short_name": "Little Clan",
+  "description": "Дневник роста ребёнка Little Clan",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f1e7",
+  "theme_color": "#516342"
+}
