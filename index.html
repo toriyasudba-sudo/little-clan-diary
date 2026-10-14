@@ -24,8 +24,6 @@
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg-top),var(--bg));color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit}
-
-/* Фикс размера и заливки всех SVG-иконок */
 svg.lux-svg{width:19px!important;height:19px!important;min-width:19px;stroke:var(--green)!important;stroke-width:1.6!important;fill:none!important;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px;display:inline-block}
 .ico svg.lux-svg{width:20px!important;height:20px!important;vertical-align:0}
 .brand{display:flex;align-items:center;gap:11px}
@@ -33,7 +31,6 @@ svg.lux-svg{width:19px!important;height:19px!important;min-width:19px;stroke:var
 .logo svg{width:22px!important;height:22px!important;stroke:var(--gold)!important;stroke-width:1.6!important;fill:none!important}
 .brand strong{display:block;font-family:var(--font-serif);font-size:21px;font-weight:700;line-height:1.1}
 .brand small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-top:2px}
-
 .login{min-height:100vh;display:grid;place-items:center;padding:18px;background:radial-gradient(circle at 12% 18%,rgba(197,165,114,.16) 0,transparent 38%)}
 .loginbox{width:min(980px,100%);display:grid;grid-template-columns:1.1fr .9fr;border:1px solid var(--goldSoft);border-radius:28px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
 .hero{padding:44px;background:linear-gradient(145deg,#FAF5EC,#EFECE4);border-right:1px solid var(--line)}
@@ -139,7 +136,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* Верхнее меню, фильтры и шахматка */
+/* Верхнее меню, фильтры, кнопки подтверждения уроков и табель часов */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -147,7 +144,7 @@ tr:last-child td{border-bottom:0}
 .lux-menu-wrap span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
 .lux-top-select{border:0!important;background:transparent!important;padding:6px 4px!important;font-weight:700;font-size:14px!important;color:var(--green)!important;cursor:pointer;width:100%;box-shadow:none!important}
 .lux-filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:13px 15px;margin-bottom:16px;background:linear-gradient(145deg,#FFFDF9,#F6F0E4);border:1px solid rgba(197,165,114,.38);border-radius:18px}
-.lux-grade-pills{display:flex;flex-wrap:wrap;gap:6px}
+.lux-grade-pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .lux-gpill{border:1px solid var(--line);background:#FFFDF9;color:var(--ink);padding:7px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer}
 .lux-gpill.on{background:var(--green);color:#FAF7F2;border-color:var(--gold)}
 .lux-search{max-width:240px;padding:8px 12px!important;border-radius:99px!important;font-size:12.5px!important}
@@ -158,6 +155,14 @@ tr:last-child td{border-bottom:0}
 .lux-kid-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid #EFE8DC}
 .lux-grade-divider{grid-column:1/-1;font-family:var(--font-serif);font-size:22px;font-weight:700;color:var(--green);margin:10px 0 2px;padding-bottom:5px;border-bottom:1px solid rgba(197,165,114,.35)}
 
+/* Кнопка отметки проведённого урока */
+.lux-done-btn{padding:8px 14px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;border:1.5px solid var(--gold);background:#FAF5EC;color:var(--ink)}
+.lux-done-btn:hover{border-color:var(--green);background:#F2ECE1}
+.lux-done-btn.is-done{background:linear-gradient(145deg,#243829,#18271C);color:#FAF7F2;border-color:var(--gold);box-shadow:0 4px 12px rgba(24,39,28,.2)}
+.lux-hours-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:18px;border-radius:20px;background:linear-gradient(135deg,#1E3124,#2B4432);color:#FAF7F2;border:1px solid var(--gold);box-shadow:var(--shadow-card)}
+.lux-hours-banner b{font-family:var(--font-serif);font-size:28px;color:var(--gold)}
+
+/* Шахматка расписания */
 .lux-sched-day{margin-bottom:20px;padding:18px;border-radius:22px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
 .lux-sched-table{width:100%;border-collapse:separate;border-spacing:0;min-width:640px}
 .lux-sched-table th{background:#F6F0E4;color:var(--green);font-family:var(--font-serif);font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;padding:10px 12px;border-bottom:1.5px solid var(--gold);border-right:1px solid #EFE8DC;text-align:center}
@@ -196,13 +201,128 @@ window._lcGrade='all';
 window._lcSearch='';
 window._lcSchedDay='all';
 window._lcClasses=[];
+window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[]};
+
+function isoDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
+function getMonday(d=new Date()){let x=new Date(d),k=x.getDay()||7;x.setHours(12,0,0,0);x.setDate(x.getDate()-k+1);return x}
+function minsOf(l){
+  let [sh,sm]=String(l.starts_at||'09:00').slice(0,5).split(':').map(Number);
+  let [eh,em]=String(l.ends_at||'09:40').slice(0,5).split(':').map(Number);
+  return Math.max(0,(eh*60+em)-(sh*60+sm));
+}
+function fmtHM(m){let h=Math.floor(m/60),r=m%60;return r?`${h} ч ${r} мин`:`${h} ч`}
+
+window._lcPeriod='week';
+window._lcFrom=isoDate(getMonday());
+window._lcTo=isoDate(addDays(getMonday(),4));
 
 async function getSb(){
   if(window._luxSb)return window._luxSb;
   const mod=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-  window._luxSb=mod.createClient(SB_URL,SB_KEY);
+  window._luxSb=mod.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
   return window._luxSb;
 }
+async function syncCache(){
+  try{
+    const client=await getSb();
+    const {data:{session}}=await client.auth.getSession();
+    if(!session?.user?.id)return;
+    const uid=session.user.id;
+    const [meR,schR,recR,attR,subR,profR,clsR,subjR,grpR]=await Promise.all([
+      client.from('profiles').select('id,school_id,role,full_name').eq('id',uid).maybeSingle(),
+      client.from('schedule').select('*').eq('active',true),
+      client.from('lesson_records').select('*'),
+      client.from('attendance').select('id,schedule_id,lesson_date,status'),
+      client.from('lesson_substitutions').select('*'),
+      client.from('profiles').select('id,school_id,role,full_name,active'),
+      client.from('classes').select('id,name,active'),
+      client.from('subjects').select('id,code,name,icon,category'),
+      client.from('groups').select('id,name')
+    ]);
+    window._lcCache={
+      ready:true,me:meR.data,
+      schedule:schR.data||[],records:recR.data||[],attendance:attR.data||[],
+      subs:subR.data||[],profiles:profR.data||[],classes:clsR.data||[],
+      subjects:subjR.data||[],groups:grpR.data||[]
+    };
+    if(clsR.data)window._lcClasses=clsR.data.filter(x=>x.active).map(x=>x.name);
+  }catch(e){console.warn('Cache sync:',e)}
+}
+function isLessonDone(scheduleId,dateStr){
+  const c=window._lcCache;
+  return c.records.some(r=>r.schedule_id===scheduleId&&r.lesson_date===dateStr)||
+         c.attendance.some(a=>a.schedule_id===scheduleId&&a.lesson_date===dateStr);
+}
+function effTeacher(l,dateStr){
+  const sub=window._lcCache.subs.find(s=>s.schedule_id===l.id&&s.lesson_date===dateStr);
+  return sub?sub.substitute_teacher_id:l.teacher_id;
+}
+function calcTeacherStats(teacherId,fromStr,toStr){
+  const c=window._lcCache;
+  let doneMins=0,planMins=0,doneCount=0,planCount=0;
+  const items=[];
+  let cur=new Date(fromStr+'T12:00:00'),end=new Date(toStr+'T12:00:00');
+  while(cur<=end){
+    const dStr=isoDate(cur),wd=cur.getDay();
+    if(wd>=1&&wd<=5){
+      const dayLs=c.schedule.filter(l=>l.active&&Number(l.weekday)===wd&&effTeacher(l,dStr)===teacherId);
+      dayLs.sort((a,b)=>String(a.starts_at).localeCompare(String(b.starts_at)));
+      dayLs.forEach(l=>{
+        const m=minsOf(l),done=isLessonDone(l.id,dStr);
+        const rec=c.records.find(r=>r.schedule_id===l.id&&r.lesson_date===dStr);
+        const subj=c.subjects.find(s=>s.id===l.subject_id)?.name||'Предмет';
+        const target=l.audience_type==='school'?'Вся школа':l.audience_type==='aftercare'?'Продлёнка':l.audience_type==='group'?(c.groups.find(g=>g.id===l.group_id)?.name||'Группа'):(c.classes.find(cl=>cl.id===l.class_id)?.name||'Класс');
+        planMins+=m;planCount++;
+        if(done){doneMins+=m;doneCount++;}
+        items.push({scheduleId:l.id,date:dStr,start:String(l.starts_at).slice(0,5),end:String(l.ends_at).slice(0,5),mins:m,done,topic:rec?.topic||'',subj,target});
+      });
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  return {doneMins,planMins,doneCount,planCount,items};
+}
+
+/* Отметка "Урок проведён" в 1 клик (для учителя и админа) */
+window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
+  if(ev)ev.stopPropagation();
+  const client=await getSb();
+  await syncCache();
+  const c=window._lcCache;
+  if(!c.me)return alert('Сессия не найдена, обновите страницу');
+  const existing=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date===dateStr);
+  const hasAtt=c.attendance.some(a=>a.schedule_id===scheduleId&&a.lesson_date===dateStr);
+  const l=c.schedule.find(x=>x.id===scheduleId);
+  const tid=teacherIdOverride||effTeacher(l||{},dateStr)||c.me.id;
+
+  if(existing||hasAtt){
+    if(existing&&existing.topic&&existing.topic!=='Урок проведён'){
+      if(!confirm(`У этого урока указана тема «${existing.topic}». Снять отметку о проведении урока?`))return;
+    }else if(!confirm('Снять отметку «Урок проведён»?')){return;}
+    if(existing){
+      const {error}=await client.from('lesson_records').delete().eq('id',existing.id);
+      if(error)return alert('Ошибка: '+error.message);
+    }
+    if(hasAtt){
+      await client.from('attendance').delete().eq('schedule_id',scheduleId).eq('lesson_date',dateStr);
+    }
+  }else{
+    const payload={
+      school_id:c.me.school_id,
+      schedule_id:scheduleId,
+      lesson_date:dateStr,
+      teacher_id:tid,
+      topic:'Урок проведён',
+      note:'Подтверждено педагогом'
+    };
+    const {error}=await client.from('lesson_records').insert(payload);
+    if(error)return alert('Не удалось отметить урок: '+error.message);
+  }
+  await syncCache();
+  if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
+  onRender();
+};
+
 window.archiveSchedule=async(id,ev)=>{
   if(ev)ev.stopPropagation();
   if(!id||!confirm('Убрать это занятие из расписания?'))return;
@@ -211,9 +331,11 @@ window.archiveSchedule=async(id,ev)=>{
     const {error}=await client.from('schedule').update({active:false}).eq('id',id);
     if(error){alert('Ошибка удаления: '+error.message);return;}
     window.closeModal?.();
+    await syncCache();
     if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
   }catch(e){alert('Ошибка: '+(e.message||e));}
 };
+
 function extractGrade(s){
   const m=String(s||'').trim().match(/^([1-4])(?![0-9])|([1-4])\s*кл/i);
   return m?(m[1]||m[2]):'other';
@@ -260,64 +382,149 @@ function makeFilterBar(onUpdate,withSearch=true){
   if(inp)inp.oninput=e=>{window._lcSearch=e.target.value.trim().toLowerCase();onUpdate()};
   return bar;
 }
-/* Удобное расписание для УЧИТЕЛЯ (карточки по дням вместо узкой таблицы) */
+
+/* 1. УЧИТЕЛЬ: Кнопки "Урок проведён" в разделе "Сегодня" */
+function upgradeTeacherToday(){
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  if(h1!=='Сегодня'||!window._lcCache.ready)return;
+  const today=isoDate();
+  const cards=[...document.querySelectorAll('.main > .grid.g2 > .card')];
+  let doneM=0,totalM=0,doneC=0;
+  cards.forEach(card=>{
+    const openBtn=card.querySelector('button[onclick^="openLesson"]');
+    if(!openBtn)return;
+    const sid=openBtn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    if(!sid)return;
+    const l=window._lcCache.schedule.find(x=>x.id===sid);
+    const m=l?minsOf(l):40;
+    const done=isLessonDone(sid,today);
+    totalM+=m;if(done){doneM+=m;doneC++;}
+    let btn=card.querySelector('.lux-done-btn');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.type='button';
+      openBtn.parentElement.prepend(btn);
+    }
+    btn.className='lux-done-btn'+(done?' is-done':'');
+    btn.innerHTML=done?`✓ Урок проведён (${m} мин в базе)`:`○ Отметить: урок проведён (${m} мин)`;
+    btn.onclick=(e)=>window.toggleLessonDone(sid,today,null,e);
+  });
+  let banner=document.querySelector('.main .lux-hours-banner');
+  if(!banner&&cards.length){
+    banner=document.createElement('div');banner.className='lux-hours-banner';
+    document.querySelector('.main .top')?.after(banner);
+  }
+  if(banner){
+    banner.innerHTML=`<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Учёт часов за сегодня</div><div style="font-size:14px;margin-top:3px">Проведено и отмечено: <b>${doneC} из ${cards.length}</b> уроков</div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Зачислено в базу</div><b>${fmtHM(doneM)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHM(totalM)}</span></div>`;
+  }
+}
+
+/* 2. УЧИТЕЛЬ: Моё расписание + отметка уроков за неделю */
 function upgradeTeacherSchedule(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
-  if(h1!=='Моё расписание')return;
-  const card=document.querySelector('.main > .card');
-  const tWrap=card?.querySelector('.table');
-  if(!tWrap||card.dataset.upgraded)return;
-  card.dataset.upgraded='1';
-  const rows=[...tWrap.querySelectorAll('tbody tr')];
+  if(h1!=='Моё расписание'||!window._lcCache.ready)return;
+  const me=window._lcCache.me;if(!me)return;
+  const mon=getMonday(),fri=addDays(mon,4);
+  const stats=calcTeacherStats(me.id,isoDate(mon),isoDate(fri));
+  const daysRu=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+
+  let container=document.querySelector('.main .lux-tsched-wrap');
+  const oldCard=document.querySelector('.main > .card');
+  if(!container){
+    container=document.createElement('div');container.className='lux-tsched-wrap';
+    if(oldCard)oldCard.replaceWith(container);
+    else document.querySelector('.main').appendChild(container);
+  }
   const byDay=new Map();
-  rows.forEach(tr=>{
-    const tds=tr.querySelectorAll('td');
-    if(tds.length<5)return;
-    const day=tds[0].textContent.trim();
-    const time=tds[1].textContent.trim();
-    const cls=tds[2].textContent.trim();
-    const subjHtml=tds[3].innerHTML;
-    const topicHtml=tds[4].innerHTML;
-    if(!byDay.has(day))byDay.set(day,[]);
-    byDay.get(day).push({time,cls,subjHtml,topicHtml});
-  });
-  if(!byDay.size){
-    card.innerHTML='<div class="empty">Вам пока не назначены занятия.</div>';
-    return;
+  for(let i=0;i<5;i++){
+    const dStr=isoDate(addDays(mon,i)),dName=daysRu[i+1];
+    const ls=stats.items.filter(x=>x.date===dStr);
+    if(ls.length)byDay.set(dName,{date:dStr,lessons:ls});
   }
   const dayNames=[...byDay.keys()];
-  const wrap=document.createElement('div');
-  const bar=document.createElement('div');bar.className='lux-filter-bar';
   const tabs=[['all','Все дни'],...dayNames.map(d=>[d,d])];
-  bar.innerHTML=`<div class="lux-grade-pills">${tabs.map(([k,l])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===k?'on':''}" data-d="${k}">${l}</button>`).join('')}</div>`;
-  wrap.appendChild(bar);
-  const box=document.createElement('div');
-  wrap.appendChild(box);
-  const renderT=()=>{
-    box.innerHTML='';
-    dayNames.forEach(d=>{
-      if(window._lcSchedDay!=='all'&&window._lcSchedDay!==d)return;
-      const ls=byDay.get(d)||[];
-      let num=0;
-      const sec=document.createElement('div');sec.className='lux-sched-day';
-      sec.innerHTML=`<div class="sh"><div><h2>${d}</h2><p>${ls.length} занятий</p></div></div><div class="list">${ls.map(l=>{
-        const isRout=/завтрак|обед|полдник|перемена|круг|продлёнка/i.test(l.subjHtml);
-        if(!isRout)num++;
-        return `<div class="row"><span class="time">${isRout?'Режим':num+' ур.'}<br>${l.time}</span><div class="rowmain"><strong>${l.cls} класс · ${l.subjHtml}</strong><small>Тема: ${l.topicHtml}</small></div></div>`;
-      }).join('')}</div>`;
-      box.appendChild(sec);
-    });
-  };
-  bar.querySelectorAll('.lux-gpill').forEach(b=>{
-    b.onclick=()=>{
-      window._lcSchedDay=b.dataset.d;
-      bar.querySelectorAll('.lux-gpill').forEach(x=>x.classList.toggle('on',x.dataset.d===window._lcSchedDay));
-      renderT();
-    };
+
+  let html=`<div class="lux-hours-banner"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Мои часы за текущую неделю</div><div style="font-size:14px;margin-top:3px">Отмечено проведёнными: <b>${stats.doneCount} из ${stats.planCount}</b> занятий</div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Подтверждено в базе</div><b>${fmtHM(stats.doneMins)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHM(stats.planMins)}</span></div></div>`;
+  if(!dayNames.length){
+    html+=`<div class="empty">Вам пока не назначены занятия.</div>`;
+    container.innerHTML=html;return;
+  }
+  html+=`<div class="lux-filter-bar"><div class="lux-grade-pills">${tabs.map(([k,l])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===k?'on':''}" data-d="${k}">${l}</button>`).join('')}</div></div>`;
+  dayNames.forEach(dName=>{
+    if(window._lcSchedDay!=='all'&&window._lcSchedDay!==dName)return;
+    const {date,lessons}=byDay.get(dName);
+    let num=0;
+    html+=`<div class="lux-sched-day"><div class="sh"><div><h2>${dName}</h2><p>${lessons.length} занятий · нажми кнопку справа, чтобы отметить урок проведённым</p></div></div><div class="list">${lessons.map(l=>{
+      const isRout=/завтрак|обед|полдник|перемена|круг|продлёнка/i.test(l.subj);
+      if(!isRout)num++;
+      return `<div class="row" style="flex-wrap:wrap"><span class="time">${isRout?'Режим':num+' ур.'}<br>${l.start}–${l.end}</span><div class="rowmain"><strong>${l.target} ·${l.subj}</strong><small>${l.mins} мин${l.topic&&l.topic!=='Урок проведён'?' · Тема: '+l.topic:''}</small></div><button type="button" class="lux-done-btn ${l.done?'is-done':''}" onclick="toggleLessonDone('${l.scheduleId}','${date}',null,event)">${l.done?`✓ Проведён (${l.mins} мин)`:`○ Отметить проведённым`}</button></div>`;
+    }).join('')}</div></div>`;
   });
-  card.replaceWith(wrap);
-  renderT();
+  container.innerHTML=html;
+  container.querySelectorAll('.lux-gpill').forEach(b=>{
+    b.onclick=()=>{window._lcSchedDay=b.dataset.d;upgradeTeacherSchedule();};
+  });
 }
+
+/* 3. АДМИНИСТРАТОР: Табель и база часов работы в разделе "Педагоги" */
+window.openTeacherHoursModal=(tid,tName)=>{
+  const st=calcTeacherStats(tid,window._lcFrom,window._lcTo);
+  const rows=st.items.map(i=>`<div class="row" style="flex-wrap:wrap"><span class="time">${i.date.slice(5)}<br>${i.start}–${i.end}</span><div class="rowmain"><strong>${i.target} · ${i.subj}</strong><small>${i.mins} мин ${i.topic?'· '+i.topic:''}</small></div><button type="button" class="lux-done-btn ${i.done?'is-done':''}" onclick="toggleLessonDone('${i.scheduleId}','${i.date}','${tid}',event);setTimeout(()=>openTeacherHoursModal('${tid}','${tName}'),350)">${i.done?'✓ Учтён ('+i.mins+' мин)':'○ Подтвердить'}</button></div>`).join('')||'<div class="empty">За выбранный период уроков по расписанию нет.</div>';
+  const ex=document.getElementById('modal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='modal';d.className='modalbg';
+  d.innerHTML=`<div class="modal" style="width:min(680px,100%)" onclick="event.stopPropagation()"><div class="mh"><h2>База часов · ${tName}</h2><button class="x" onclick="closeModal()">×</button></div><div class="lux-hours-banner" style="margin-bottom:14px"><div><div style="font-size:11px;opacity:.8">Период: ${window._lcFrom} — ${window._lcTo}</div><div style="font-size:14px;margin-top:2px">Проведено: <b>${st.doneCount} из ${st.planCount}</b> уроков</div></div><div style="text-align:right"><b>${fmtHM(st.doneMins)}</b><div style="font-size:11px;opacity:.8">План: ${fmtHM(st.planMins)}</div></div></div><div class="list" style="max-height:58vh;overflow:auto">${rows}</div></div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+function upgradeAdminTeachersHours(){
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  if(h1!=='Педагоги'||!window._lcCache.ready)return;
+  const teachers=window._lcCache.profiles.filter(p=>p.role==='teacher'&&p.active);
+  let box=document.querySelector('.main .lux-admin-timesheet');
+  if(!box){
+    box=document.createElement('div');box.className='card lux-admin-timesheet';
+    box.style.marginBottom='20px';
+    const firstCard=document.querySelector('.main > .card');
+    if(firstCard)firstCard.before(box);
+  }
+  const setPreset=(p)=>{
+    window._lcPeriod=p;
+    const now=new Date(),mon=getMonday(now);
+    if(p==='week'){window._lcFrom=isoDate(mon);window._lcTo=isoDate(addDays(mon,4));}
+    if(p==='prev'){const pm=addDays(mon,-7);window._lcFrom=isoDate(pm);window._lcTo=isoDate(addDays(pm,4));}
+    if(p==='month'){const f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);window._lcFrom=isoDate(f);window._lcTo=isoDate(l);}
+    upgradeAdminTeachersHours();
+  };
+  let totalDoneM=0,totalDoneC=0;
+  const tRows=teachers.map(t=>{
+    const st=calcTeacherStats(t.id,window._lcFrom,window._lcTo);
+    totalDoneM+=st.doneMins;totalDoneC+=st.doneCount;
+    const safeName=String(t.full_name||'Педагог').replace(/'/g,'');
+    return `<tr><td><b>${t.full_name}</b></td><td><span class="chip ${st.doneCount?'green':''}">${st.doneCount} из ${st.planCount} ур.</span></td><td><b style="color:var(--green);font-size:15px">${fmtHM(st.doneMins)}</b></td><td style="color:var(--muted)">${fmtHM(st.planMins)}</td><td><button type="button" class="btn soft" onclick="openTeacherHoursModal('${t.id}','${safeName}')">Детализация / Отметить ▾</button></td></tr>`;
+  }).join('')||'<tr><td colspan="5">Нет активных педагогов</td></tr>';
+
+  box.innerHTML=`<div class="sh"><div><h2>📊 Табель и база часов работы педагогов</h2><p>Часы начисляются автоматически, когда педагог отмечает урок проведённым, заполняет тему или посещаемость</p></div><span class="badge">Всего подтверждено: ${fmtHM(totalDoneM)} (${totalDoneC} ур.)</span></div>
+  <div class="lux-filter-bar" style="margin-bottom:14px">
+    <div class="lux-grade-pills">
+      <button type="button" class="lux-gpill ${window._lcPeriod==='week'?'on':''}" data-p="week">Эта неделя</button>
+      <button type="button" class="lux-gpill ${window._lcPeriod==='prev'?'on':''}" data-p="prev">Прошлая неделя</button>
+      <button type="button" class="lux-gpill ${window._lcPeriod==='month'?'on':''}" data-p="month">Текущий месяц</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="date" id="luxFrom" value="${window._lcFrom}" style="width:auto;padding:6px 10px">
+      <span>—</span>
+      <input type="date" id="luxTo" value="${window._lcTo}" style="width:auto;padding:6px 10px">
+    </div>
+  </div>
+  <div class="table"><table><thead><tr><th>Педагог</th><th>Проведено уроков</th><th>Отработано (подтверждено)</th><th>План по расписанию</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>`;
+
+  box.querySelectorAll('.lux-gpill[data-p]').forEach(b=>b.onclick=()=>setPreset(b.dataset.p));
+  const inpF=box.querySelector('#luxFrom'),inpT=box.querySelector('#luxTo');
+  if(inpF)inpF.onchange=()=>{window._lcPeriod='custom';window._lcFrom=inpF.value;upgradeAdminTeachersHours()};
+  if(inpT)inpT.onchange=()=>{window._lcPeriod='custom';window._lcTo=inpT.value;upgradeAdminTeachersHours()};
+}
+
+/* 4. АДМИНИСТРАТОР: Шахматка расписания по классам */
 function upgradeAdminSchedule(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Расписание')return;
@@ -402,6 +609,7 @@ function upgradeAdminSchedule(){
   grid.replaceWith(wrap);
   renderMatrix();
 }
+
 function upgradeTablesAndLists(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1==='Классы'){
@@ -411,7 +619,6 @@ function upgradeTablesAndLists(){
     const cards=[...grid.querySelectorAll(':scope > .card')];
     cards.forEach(c=>{
       const clsName=c.querySelector('.sh h2')?.textContent.trim()||'';
-      if(clsName)window._lcClasses=[...new Set([...window._lcClasses,clsName])];
       c.dataset.grade=extractGrade(clsName);c.dataset.cls=clsName.toLowerCase();
     });
     cards.sort((a,b)=>(a.dataset.grade.localeCompare(b.dataset.grade))||(a.dataset.cls.localeCompare(b.dataset.cls)));
@@ -497,19 +704,23 @@ function upgradeTablesAndLists(){
     list.before(makeFilterBar(apply,true));apply();
   }
 }
+
 function onRender(){
   buildTopDropdown();
   upgradeTablesAndLists();
   upgradeAdminSchedule();
+  upgradeTeacherToday();
   upgradeTeacherSchedule();
+  upgradeAdminTeachersHours();
 }
-window.addEventListener('DOMContentLoaded',()=>{
-  getSb().then(c=>c.from('classes').select('name,active').eq('active',true)).then(r=>{
-    if(r?.data)window._lcClasses=r.data.map(x=>x.name);
-  }).catch(()=>{});
+window.addEventListener('DOMContentLoaded',async()=>{
+  await syncCache();
   const app=document.getElementById('app');
   if(app){
-    new MutationObserver(onRender).observe(app,{childList:true,subtree:false});
+    new MutationObserver(async()=>{
+      if(!window._lcCache.ready)await syncCache();
+      onRender();
+    }).observe(app,{childList:true,subtree:false});
     onRender();
   }
 });
