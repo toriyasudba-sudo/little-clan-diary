@@ -125,7 +125,7 @@ tr:last-child td{border-bottom:0}
 .day.today{background:var(--green);color:#FFFDF9;border:1px solid var(--gold)}
 .empty{text-align:center;padding:26px;color:var(--muted);border:1px dashed rgba(197,165,114,.45);border-radius:16px;background:rgba(255,253,249,.6);font-family:var(--font-serif);font-style:italic;font-size:17px}
 .modalbg{position:fixed;inset:0;background:rgba(20,26,20,.55);z-index:50;display:grid;place-items:center;padding:14px}
-.modal{width:min(600px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--gold);border-radius:24px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+.modal{width:min(640px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--gold);border-radius:24px;padding:22px;box-shadow:0 24px 70px rgba(0,0,0,.25)}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .mh h2{margin:0;font-family:var(--font-serif);font-size:25px}
 .x{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#F7F2E8;cursor:pointer;font-size:18px}
@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* Верхнее меню, фильтры, кнопки подтверждения уроков и табель часов */
+/* Верхнее меню, фильтры, кнопки подтверждения уроков и табель 100 баллов */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -155,12 +155,18 @@ tr:last-child td{border-bottom:0}
 .lux-kid-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid #EFE8DC}
 .lux-grade-divider{grid-column:1/-1;font-family:var(--font-serif);font-size:22px;font-weight:700;color:var(--green);margin:10px 0 2px;padding-bottom:5px;border-bottom:1px solid rgba(197,165,114,.35)}
 
-/* Кнопка отметки проведённого урока */
 .lux-done-btn{padding:8px 14px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.2s;border:1.5px solid var(--gold);background:#FAF5EC;color:var(--ink)}
 .lux-done-btn:hover{border-color:var(--green);background:#F2ECE1}
 .lux-done-btn.is-done{background:linear-gradient(145deg,#243829,#18271C);color:#FAF7F2;border-color:var(--gold);box-shadow:0 4px 12px rgba(24,39,28,.2)}
 .lux-hours-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:18px;border-radius:20px;background:linear-gradient(135deg,#1E3124,#2B4432);color:#FAF7F2;border:1px solid var(--gold);box-shadow:var(--shadow-card)}
 .lux-hours-banner b{font-family:var(--font-serif);font-size:28px;color:var(--gold)}
+
+/* Медальоны 100-балльного Табеля */
+.lux-score-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;font-size:12px;font-weight:700;border:1px solid rgba(197,165,114,.45);background:#FAF6EE;margin:3px 4px 3px 0}
+.lux-score-pill b{font-family:var(--font-serif);font-size:16px;padding:2px 7px;border-radius:8px;background:var(--green);color:#FAF7F2}
+.lux-score-pill.mid b{background:var(--yellow)}
+.lux-score-pill.low b{background:var(--orange)}
+.lux-avg-badge{display:inline-flex;align-items:center; justify-content:center;padding:6px 13px;border-radius:99px;background:linear-gradient(145deg,#243829,#18271C);color:#FAF7F2;border:1px solid var(--gold);font-family:var(--font-serif);font-size:17px;font-weight:700}
 
 /* Шахматка расписания */
 .lux-sched-day{margin-bottom:20px;padding:18px;border-radius:22px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
@@ -200,18 +206,29 @@ const SB_KEY='sb_publishable_d9Rf6xNSups9x8Fyz4W-Og_t0Oy4m1Y';
 window._lcGrade='all';
 window._lcSearch='';
 window._lcSchedDay='all';
+window._lcTabelMode=false;
 window._lcClasses=[];
-window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[]};
+window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],children:[],parentLinks:[],observations:[]};
 
 function isoDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
 function getMonday(d=new Date()){let x=new Date(d),k=x.getDay()||7;x.setHours(12,0,0,0);x.setDate(x.getDate()-k+1);return x}
-function minsOf(l){
-  let [sh,sm]=String(l.starts_at||'09:00').slice(0,5).split(':').map(Number);
-  let [eh,em]=String(l.ends_at||'09:40').slice(0,5).split(':').map(Number);
-  return Math.max(0,(eh*60+em)-(sh*60+sm));
+function escH(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
+
+/* ПРАВИЛО ЧАСОВ: Круг и питание/перемены = 0 часов. Каждый учебный урок = 1 час! */
+function isNonCountedSubj(subjObj,rawName=''){
+  const code=subjObj?.code||'';
+  const name=String(subjObj?.name||rawName||'').trim();
+  if(['circle','breakfast','break','lunch','snack'].includes(code))return true;
+  return /^(круг|завтрак|перемена|обед|полдник)$/i.test(name);
 }
-function fmtHM(m){let h=Math.floor(m/60),r=m%60;return r?`${h} ч ${r} мин`:`${h} ч`}
+function isNonAcademicForTabel(subjObj){
+  const code=subjObj?.code||'';
+  const name=String(subjObj?.name||'').trim();
+  if(['circle','breakfast','break','lunch','snack','extended'].includes(code))return true;
+  return /^(круг|завтрак|перемена|обед|полдник|продлёнка)$/i.test(name);
+}
+function fmtHoursCount(h){return `${h} ч`}
 
 window._lcPeriod='week';
 window._lcFrom=isoDate(getMonday());
@@ -229,7 +246,7 @@ async function syncCache(){
     const {data:{session}}=await client.auth.getSession();
     if(!session?.user?.id)return;
     const uid=session.user.id;
-    const [meR,schR,recR,attR,subR,profR,clsR,subjR,grpR]=await Promise.all([
+    const [meR,schR,recR,attR,subR,profR,clsR,subjR,grpR,chR,plR,obsR]=await Promise.all([
       client.from('profiles').select('id,school_id,role,full_name').eq('id',uid).maybeSingle(),
       client.from('schedule').select('*').eq('active',true),
       client.from('lesson_records').select('*'),
@@ -237,14 +254,19 @@ async function syncCache(){
       client.from('lesson_substitutions').select('*'),
       client.from('profiles').select('id,school_id,role,full_name,active'),
       client.from('classes').select('id,name,active'),
-      client.from('subjects').select('id,code,name,icon,category'),
-      client.from('groups').select('id,name')
+      client.from('subjects').select('id,code,name,icon,category,active'),
+      client.from('groups').select('id,name'),
+      client.from('children').select('id,school_id,class_id,first_name,last_name,active'),
+      client.from('child_parents').select('child_id,parent_id'),
+      client.from('observations').select('*')
     ]);
     window._lcCache={
       ready:true,me:meR.data,
       schedule:schR.data||[],records:recR.data||[],attendance:attR.data||[],
       subs:subR.data||[],profiles:profR.data||[],classes:clsR.data||[],
-      subjects:subjR.data||[],groups:grpR.data||[]
+      subjects:subjR.data||[],groups:grpR.data||[],
+      children:(chR.data||[]).map(k=>({...k,name:[k.last_name,k.first_name].filter(Boolean).join(' ')})),
+      parentLinks:plR.data||[],observations:obsR.data||[]
     };
     if(clsR.data)window._lcClasses=clsR.data.filter(x=>x.active).map(x=>x.name);
   }catch(e){console.warn('Cache sync:',e)}
@@ -258,9 +280,10 @@ function effTeacher(l,dateStr){
   const sub=window._lcCache.subs.find(s=>s.schedule_id===l.id&&s.lesson_date===dateStr);
   return sub?sub.substitute_teacher_id:l.teacher_id;
 }
+/* Считаем каждый учебный урок как 1 час, Круг и режим — 0 часов */
 function calcTeacherStats(teacherId,fromStr,toStr){
   const c=window._lcCache;
-  let doneMins=0,planMins=0,doneCount=0,planCount=0;
+  let doneHours=0,planHours=0,doneCount=0,planCount=0;
   const items=[];
   let cur=new Date(fromStr+'T12:00:00'),end=new Date(toStr+'T12:00:00');
   while(cur<=end){
@@ -269,21 +292,25 @@ function calcTeacherStats(teacherId,fromStr,toStr){
       const dayLs=c.schedule.filter(l=>l.active&&Number(l.weekday)===wd&&effTeacher(l,dStr)===teacherId);
       dayLs.sort((a,b)=>String(a.starts_at).localeCompare(String(b.starts_at)));
       dayLs.forEach(l=>{
-        const m=minsOf(l),done=isLessonDone(l.id,dStr);
+        const subjObj=c.subjects.find(s=>s.id===l.subject_id);
+        const subj=subjObj?.name||'Предмет';
+        const nonCount=isNonCountedSubj(subjObj,subj);
+        const h=nonCount?0:1;
+        const done=isLessonDone(l.id,dStr);
         const rec=c.records.find(r=>r.schedule_id===l.id&&r.lesson_date===dStr);
-        const subj=c.subjects.find(s=>s.id===l.subject_id)?.name||'Предмет';
         const target=l.audience_type==='school'?'Вся школа':l.audience_type==='aftercare'?'Продлёнка':l.audience_type==='group'?(c.groups.find(g=>g.id===l.group_id)?.name||'Группа'):(c.classes.find(cl=>cl.id===l.class_id)?.name||'Класс');
-        planMins+=m;planCount++;
-        if(done){doneMins+=m;doneCount++;}
-        items.push({scheduleId:l.id,date:dStr,start:String(l.starts_at).slice(0,5),end:String(l.ends_at).slice(0,5),mins:m,done,topic:rec?.topic||'',subj,target});
+        if(!nonCount){
+          planHours+=h;planCount++;
+          if(done){doneHours+=h;doneCount++;}
+        }
+        items.push({scheduleId:l.id,date:dStr,start:String(l.starts_at).slice(0,5),end:String(l.ends_at).slice(0,5),hours:h,nonCount,done,topic:rec?.topic||'',subj,target});
       });
     }
     cur.setDate(cur.getDate()+1);
   }
-  return {doneMins,planMins,doneCount,planCount,items};
+  return {doneHours,planHours,doneCount,planCount,items};
 }
 
-/* Отметка "Урок проведён" в 1 клик (для учителя и админа) */
 window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   if(ev)ev.stopPropagation();
   const client=await getSb();
@@ -296,26 +323,14 @@ window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   const tid=teacherIdOverride||effTeacher(l||{},dateStr)||c.me.id;
 
   if(existing||hasAtt){
-    if(existing&&existing.topic&&existing.topic!=='Урок проведён'){
-      if(!confirm(`У этого урока указана тема «${existing.topic}». Снять отметку о проведении урока?`))return;
-    }else if(!confirm('Снять отметку «Урок проведён»?')){return;}
-    if(existing){
-      const {error}=await client.from('lesson_records').delete().eq('id',existing.id);
-      if(error)return alert('Ошибка: '+error.message);
-    }
-    if(hasAtt){
-      await client.from('attendance').delete().eq('schedule_id',scheduleId).eq('lesson_date',dateStr);
-    }
+    if(!confirm('Снять отметку «Урок проведён»?'))return;
+    if(existing)await client.from('lesson_records').delete().eq('id',existing.id);
+    if(hasAtt)await client.from('attendance').delete().eq('schedule_id',scheduleId).eq('lesson_date',dateStr);
   }else{
-    const payload={
-      school_id:c.me.school_id,
-      schedule_id:scheduleId,
-      lesson_date:dateStr,
-      teacher_id:tid,
-      topic:'Урок проведён',
-      note:'Подтверждено педагогом'
-    };
-    const {error}=await client.from('lesson_records').insert(payload);
+    const {error}=await client.from('lesson_records').insert({
+      school_id:c.me.school_id,schedule_id:scheduleId,lesson_date:dateStr,
+      teacher_id:tid,topic:'Урок проведён',note:'Подтверждено (1 ч)'
+    });
     if(error)return alert('Не удалось отметить урок: '+error.message);
   }
   await syncCache();
@@ -326,15 +341,227 @@ window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
 window.archiveSchedule=async(id,ev)=>{
   if(ev)ev.stopPropagation();
   if(!id||!confirm('Убрать это занятие из расписания?'))return;
-  try{
-    const client=await getSb();
-    const {error}=await client.from('schedule').update({active:false}).eq('id',id);
-    if(error){alert('Ошибка удаления: '+error.message);return;}
-    window.closeModal?.();
-    await syncCache();
-    if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
-  }catch(e){alert('Ошибка: '+(e.message||e));}
+  const client=await getSb();
+  const {error}=await client.from('schedule').update({active:false}).eq('id',id);
+  if(error)return alert('Ошибка удаления: '+error.message);
+  window.closeModal?.();
+  await syncCache();
+  if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
 };
+
+/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ (100 БАЛЛОВ · ТОЛЬКО ПРОВЕРОЧНЫЕ И КОНТРОЛЬНЫЕ) --- */
+function parseTabelObs(o){
+  const t=o.tags||[];
+  if(t[0]==='__TABEL_DELETED__')return null;
+  if(t[0]==='__TABEL__'){
+    return {id:o.id,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:Number(t[2]||0),topic:o.note||''};
+  }
+  const m=String(o.note||'').match(/^\[(Проверочная работа|Контрольная работа)\s*·\s*(\d{1,3})\/100\]\s*(.*)$/i);
+  if(m)return {id:o.id,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:m[1],score:Number(m[2]),topic:m[3]||''};
+  return null;
+}
+function getChildScores(childId){
+  return window._lcCache.observations.map(parseTabelObs).filter(x=>x&&(!childId||x.childId===childId)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+/* Скрываем технические записи Табеля из обычной безоценочной ленты наблюдений */
+function cleanObservationFeeds(){
+  document.querySelectorAll('.row, .feeditem').forEach(el=>{
+    if(el.textContent.includes('__TABEL__')||/\[(Проверочная работа|Контрольная работа)\s*·\s*\d+\/100\]/.test(el.textContent)){
+      el.style.display='none';
+    }
+  });
+}
+
+window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
+  const c=window._lcCache;
+  const kids=c.children.filter(k=>k.active).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+  const subs=c.subjects.filter(s=>s.active&&!isNonAcademicForTabel(s));
+  const ex=document.getElementById('scoreModal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='scoreModal';d.className='modalbg';d.style.zIndex='70';
+  d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="mh"><h2>Выставить балл (из 100)</h2><button class="x" onclick="document.getElementById('scoreModal').remove()">×</button></div>
+    <p style="margin:0 0 14px;font-size:12.5px;color:var(--muted)">Обычные уроки идут по безоценочной системе. В табель выставляются баллы из 100 <b>только за проверочные и контрольные работы</b>.</p>
+    <form onsubmit="saveScoreEntry(event,${inModal})">
+      <div class="field"><label>Ребёнок</label><select name="childId" required>${kids.map(k=>{const cl=c.classes.find(x=>x.id===k.class_id)?.name||'';return `<option value="${k.id}" ${k.id===childId?'selected':''}>${escH(k.name)} (${escH(cl)})</option>`}).join('')}</select></div>
+      <div class="formgrid">
+        <div class="field"><label>Предмет</label><select name="subjectId" required>${subs.map(s=>`<option value="${s.id}" ${s.id===subjectId?'selected':''}>${escH(s.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>Вид работы</label><select name="workType" required><option value="Проверочная работа">Проверочная работа</option><option value="Контрольная работа">Контрольная работа</option></select></div>
+      </div>
+      <div class="formgrid">
+        <div class="field"><label>Балл (от 0 до 100)</label><input type="number" name="score" min="0" max="100" required placeholder="Например: 92"></div>
+        <div class="field"><label>Дата проведения</label><input type="date" name="date" value="${isoDate()}" required></div>
+      </div>
+      <div class="field"><label>Тема проверочной / контрольной работы</label><input type="text" name="topic" required placeholder="Например: Итоговый диктант / Сложение и вычитание"></div>
+      <div class="actions"><button type="button" class="btn ghost" onclick="document.getElementById('scoreModal').remove()">Отмена</button><button class="btn primary">Сохранить в Табель</button></div>
+    </form>
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.saveScoreEntry=async(e,reopenChildModal)=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const childId=f.get('childId'),subjectId=f.get('subjectId'),workType=f.get('workType'),score=Math.min(100,Math.max(0,Number(f.get('score')))),date=f.get('date'),topic=f.get('topic').trim();
+  const client=await getSb();
+  const c=window._lcCache;
+  const {error}=await client.from('observations').insert({
+    school_id:c.me.school_id,child_id:childId,subject_id:subjectId,teacher_id:c.me.id,
+    observed_on:date,note:topic,tags:['__TABEL__',workType,String(score)]
+  });
+  if(error)return alert('Ошибка сохранения балла: '+error.message);
+  document.getElementById('scoreModal')?.remove();
+  await syncCache();
+  if(reopenChildModal)window.openChildTabelModal(childId);
+  onRender();
+};
+
+window.deleteScoreEntry=async(obsId,childId)=>{
+  if(!confirm('Удалить этот балл из табеля?'))return;
+  const client=await getSb();
+  let {error}=await client.from('observations').delete().eq('id',obsId);
+  if(error){
+    await client.from('observations').update({tags:['__TABEL_DELETED__']}).eq('id',obsId);
+  }
+  await syncCache();
+  if(document.getElementById('modal'))window.openChildTabelModal(childId);
+  onRender();
+};
+
+function buildChildTabelHtml(childId,canEdit=false){
+  const c=window._lcCache;
+  const k=c.children.find(x=>x.id===childId);
+  if(!k)return '<div class="empty">Ребёнок не найден</div>';
+  const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
+  const subs=c.subjects.filter(s=>s.active&&!isNonAcademicForTabel(s));
+  const scores=getChildScores(childId);
+  const totalAvg=scores.length?Math.round(scores.reduce((a,b)=>a+b.score,0)/scores.length):null;
+
+  const rows=subs.map(s=>{
+    const sc=scores.filter(x=>x.subjectId===s.id);
+    const avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):null;
+    const pills=sc.map(x=>{
+      const clsP=x.score>=80?'':x.score>=60?'mid':'low';
+      const shortT=x.type==='Контрольная работа'?'Контр.':'Проверочн.';
+      return `<span class="lux-score-pill ${clsP}" title="${escH(x.type)}: ${escH(x.topic)} (${x.date})"><b>${x.score}/100</b> <span>${shortT}${x.topic?' · '+escH(x.topic):''} <small style="color:var(--muted)">(${x.date.slice(5)})</small></span>${canEdit?`<button type="button" style="border:0;background:transparent;color:var(--red);cursor:pointer;font-weight:700;padding:0 2px" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
+    }).join('');
+    return `<tr>
+      <td><b>${escH(s.name)}</b></td>
+      <td>${pills||'<span style="color:var(--muted);font-size:12px">Проверочных и контрольных пока не было</span>'}</td>
+      <td style="text-align:center">${avg!==null?`<span class="lux-avg-badge">${avg} / 100</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      ${canEdit?`<td style="text-align:right;white-space:nowrap"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}
+    </tr>`;
+  }).join('');
+
+  return `<div class="lux-hours-banner" style="margin-bottom:14px">
+    <div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Табель успеваемости (100-балльная шкала)</div>
+      <div style="font-size:18px;font-weight:700;margin-top:3px">${escH(k.name)} · ${escH(clsName)} класс</div>
+      <div style="font-size:12px;opacity:.8;margin-top:2px">Учитываются только проверочные и контрольные работы (остальные занятия — безоценочные)</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Средний балл</div>
+      <b>${totalAvg!==null?totalAvg+' / 100':'—'}</b>
+      <div style="font-size:11px;opacity:.8">Работ сдано: ${scores.length}</div>
+    </div>
+  </div>
+  <div class="actions" style="margin:0 0 12px;justify-content:space-between">
+    <button type="button" class="btn ghost" onclick="printChildTabelPdf('${childId}')">⇩ Скачать / Печать Табеля (PDF)</button>
+    ${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл (из 100)</button>`:''}
+  </div>
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Средний балл</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+window.openChildTabelModal=(childId)=>{
+  const c=window._lcCache;
+  const k=c.children.find(x=>x.id===childId);
+  if(!k)return;
+  const canEdit=c.me?.role==='admin'||c.me?.role==='teacher';
+  window.closeModal?.();
+  const d=document.createElement('div');d.id='modal';d.className='modalbg';
+  d.innerHTML=`<div class="modal" style="width:min(860px,100%)" onclick="event.stopPropagation()">
+    <div class="mh"><h2>★ Табель успеваемости · ${escH(k.name)}</h2><button class="x" onclick="closeModal()">×</button></div>
+    ${buildChildTabelHtml(childId,canEdit)}
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.printChildTabelPdf=(childId)=>{
+  const c=window._lcCache;
+  const k=c.children.find(x=>x.id===childId);if(!k)return;
+  const html=buildChildTabelHtml(childId,false);
+  const w=window.open('','_blank');if(!w)return alert('Разрешите всплывающие окна');
+  w.document.write(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Табель — ${escH(k.name)}</title><style>body{font-family:Georgia,serif;padding:24px;color:#1C221C}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #DFD5C5;padding:10px;text-align:left;font-size:13px}th{background:#F6F0E4}.btn{display:none}.lux-score-pill b{font-weight:700;color:#1E3124}</style></head><body><h1>Little Clan · Табель успеваемости (100-балльная шкала)</h1>${html}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+};
+
+/* Полноценная страница "★ Табель (100 баллов)" */
+window.openTabelPage=()=>{
+  window._lcTabelMode=true;
+  renderTabelPageView();
+};
+function renderTabelPageView(){
+  const main=document.querySelector('.main');
+  if(!main||!window._lcCache.ready)return;
+  const c=window._lcCache;
+  const role=c.me?.role;
+  const canEdit=role==='admin'||role==='teacher';
+
+  if(role==='parent'){
+    const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
+    const selId=sessionStorage.getItem('PARENT_CHILD')||myKids[0]?.id;
+    const k=myKids.find(x=>x.id===selId)||myKids[0];
+    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости (из 100 баллов)</h1><p>Только проверочные и контрольные работы · остальные занятия безоценочные</p></div></div>
+    ${myKids.length>1?`<div class="card" style="margin-bottom:14px"><div class="chips">${myKids.map(x=>`<button class="btn ${x.id===k?.id?'primary':'soft'}" onclick="sessionStorage.setItem('PARENT_CHILD','${x.id}');renderTabelPageView()">${escH(x.first_name)}</button>`).join('')}</div></div>`:''}
+    <div class="card">${k?buildChildTabelHtml(k.id,false):'<div class="empty">Ребёнок не привязан</div>'}</div>`;
+    return;
+  }
+
+  let kids=c.children.filter(k=>k.active);
+  kids.sort((a,b)=>{
+    const ca=c.classes.find(x=>x.id===a.class_id)?.name||'';
+    const cb=c.classes.find(x=>x.id===b.class_id)?.name||'';
+    return extractGrade(ca).localeCompare(extractGrade(cb))||ca.localeCompare(cb,'ru')||a.name.localeCompare(b.name,'ru');
+  });
+
+  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости (100 баллов)</h1><p>Баллы из 100 выставляются только за проверочные и контрольные работы по всем предметам</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл (Проверочная / Контрольная)</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
+  const grid=main.querySelector('#luxTabelKidsGrid');
+  const renderList=()=>{
+    grid.innerHTML='';
+    let lastG=null;
+    const q=window._lcSearch;
+    kids.forEach(k=>{
+      const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
+      const g=extractGrade(clsName);
+      const okG=window._lcGrade==='all'||g===window._lcGrade;
+      const okS=!q||(k.name+' '+clsName).toLowerCase().includes(q);
+      if(!okG||!okS)return;
+      if(window._lcGrade==='all'&&g!==lastG){
+        lastG=g;
+        const div=document.createElement('div');div.className='lux-grade-divider';
+        div.textContent=g==='other'?'Другие классы':`${g} параллель (${g} класс)`;
+        grid.appendChild(div);
+      }
+      const sc=getChildScores(k.id);
+      const avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):null;
+      const recent=sc.slice(-3).reverse().map(x=>{
+        const sName=c.subjects.find(s=>s.id===x.subjectId)?.name||'Предмет';
+        return `<span class="lux-score-pill"><b>${x.score}/100</b> <span>${escH(sName)} · ${x.type==='Контрольная работа'?'Контр.':'Проверочн.'}</span></span>`;
+      }).join('');
+      const card=document.createElement('div');card.className='lux-kid-card';
+      const ini=k.name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>Работ в табеле: ${sc.length} ${avg!==null?`· Средний: <b>${avg}/100</b>`:''}</small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
+      <div>${recent||'<small style="color:var(--muted)">Проверочных и контрольных пока нет</small>'}</div>
+      <div class="lux-kid-actions">
+        <button type="button" class="btn primary" onclick="openChildTabelModal('${k.id}')">★ Открыть полный табель</button>
+        <button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Выставить балл</button>
+      </div>`;
+      grid.appendChild(card);
+    });
+    if(!grid.children.length)grid.innerHTML='<div class="empty" style="grid-column:1/-1">Детей в выбранной параллели не найдено</div>';
+  };
+  main.querySelector('#luxTabelFilterMount').appendChild(makeFilterBar(renderList,true));
+  renderList();
+}
 
 function extractGrade(s){
   const m=String(s||'').trim().match(/^([1-4])(?![0-9])|([1-4])\s*кл/i);
@@ -348,23 +575,46 @@ function sortTargets(list){
   });
 }
 function buildTopDropdown(){
-  const navBtns=[...document.querySelectorAll('.mobilenav button, .side .nav button')];
+  const sideNav=document.querySelector('.side .nav');
+  if(sideNav&&!sideNav.querySelector('button[data-tabel]')){
+    const b=document.createElement('button');
+    b.dataset.tabel='1';
+    b.className=window._lcTabelMode?'on':'';
+    b.textContent='★ Табель (100 баллов)';
+    b.onclick=()=>window.openTabelPage();
+    sideNav.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>{window._lcTabelMode=false}));
+    sideNav.appendChild(b);
+  }
+  const navBtns=[...document.querySelectorAll('.side .nav button')];
   if(!navBtns.length)return;
   const seen=new Set(),items=[];
   navBtns.forEach(b=>{
+    if(b.dataset.tabel){
+      items.push({route:'__tabel__',label:'★ Табель (100 баллов)',on:window._lcTabelMode});
+      return;
+    }
     const m=(b.getAttribute('onclick')||'').match(/go\(['"]([^'"]+)['"]\)/);
-    if(m&&!seen.has(m[1])){seen.add(m[1]);items.push({route:m[1],label:b.textContent.trim(),on:b.classList.contains('on')})}
+    if(m&&!seen.has(m[1])){seen.add(m[1]);items.push({route:m[1],label:b.textContent.trim(),on:!window._lcTabelMode&&b.classList.contains('on')})}
   });
-  if(!items.length)return;
   const opts=items.map(i=>`<option value="${i.route}" ${i.on?'selected':''}>${i.label}</option>`).join('');
   const mtop=document.querySelector('.mobiletop');
-  if(mtop&&!mtop.querySelector('.lux-top-select')){
-    const children=[...mtop.children];
-    const r1=document.createElement('div');r1.className='mobiletop-row1';
-    children.forEach(c=>r1.appendChild(c));
-    const r2=document.createElement('div');r2.className='lux-menu-wrap';
-    r2.innerHTML=`<span>Меню:</span><select class="lux-top-select" onchange="window.go(this.value)">${opts}</select>`;
-    mtop.appendChild(r1);mtop.appendChild(r2);
+  if(mtop){
+    let sel=mtop.querySelector('.lux-top-select');
+    if(!sel){
+      const children=[...mtop.children];
+      const r1=document.createElement('div');r1.className='mobiletop-row1';
+      children.forEach(c=>r1.appendChild(c));
+      const r2=document.createElement('div');r2.className='lux-menu-wrap';
+      r2.innerHTML=`<span>Меню:</span><select class="lux-top-select">${opts}</select>`;
+      mtop.appendChild(r1);mtop.appendChild(r2);
+      sel=r2.querySelector('select');
+      sel.onchange=function(){
+        if(this.value==='__tabel__'){window.openTabelPage();}
+        else{window._lcTabelMode=false;window.go(this.value);}
+      };
+    }else{
+      sel.innerHTML=opts;
+    }
   }
 }
 function makeFilterBar(onUpdate,withSearch=true){
@@ -383,31 +633,38 @@ function makeFilterBar(onUpdate,withSearch=true){
   return bar;
 }
 
-/* 1. УЧИТЕЛЬ: Кнопки "Урок проведён" в разделе "Сегодня" */
+/* 1. УЧИТЕЛЬ: "Сегодня" — 1 урок = 1 час, Круг не в счёт */
 function upgradeTeacherToday(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Сегодня'||!window._lcCache.ready)return;
   const today=isoDate();
   const cards=[...document.querySelectorAll('.main > .grid.g2 > .card')];
-  let doneM=0,totalM=0,doneC=0;
+  let doneH=0,totalH=0,doneC=0,totalC=0;
   cards.forEach(card=>{
     const openBtn=card.querySelector('button[onclick^="openLesson"]');
     if(!openBtn)return;
     const sid=openBtn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
     if(!sid)return;
     const l=window._lcCache.schedule.find(x=>x.id===sid);
-    const m=l?minsOf(l):40;
+    const subjObj=window._lcCache.subjects.find(s=>s.id===l?.subject_id);
+    const nonCount=isNonCountedSubj(subjObj,card.querySelector('strong')?.textContent||'');
     const done=isLessonDone(sid,today);
-    totalM+=m;if(done){doneM+=m;doneC++;}
+    if(!nonCount){totalH+=1;totalC+=1;if(done){doneH+=1;doneC+=1;}}
     let btn=card.querySelector('.lux-done-btn');
     if(!btn){
       btn=document.createElement('button');
       btn.type='button';
       openBtn.parentElement.prepend(btn);
     }
-    btn.className='lux-done-btn'+(done?' is-done':'');
-    btn.innerHTML=done?`✓ Урок проведён (${m} мин в базе)`:`○ Отметить: урок проведён (${m} мин)`;
-    btn.onclick=(e)=>window.toggleLessonDone(sid,today,null,e);
+    if(nonCount){
+      btn.className='chip';
+      btn.innerHTML='Круг / Режим · без часов';
+      btn.onclick=null;
+    }else{
+      btn.className='lux-done-btn'+(done?' is-done':'');
+      btn.innerHTML=done?`✓ Урок проведён (1 ч в базе)`:`○ Отметить: урок проведён (+1 ч)`;
+      btn.onclick=(e)=>window.toggleLessonDone(sid,today,null,e);
+    }
   });
   let banner=document.querySelector('.main .lux-hours-banner');
   if(!banner&&cards.length){
@@ -415,11 +672,11 @@ function upgradeTeacherToday(){
     document.querySelector('.main .top')?.after(banner);
   }
   if(banner){
-    banner.innerHTML=`<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Учёт часов за сегодня</div><div style="font-size:14px;margin-top:3px">Проведено и отмечено: <b>${doneC} из ${cards.length}</b> уроков</div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Зачислено в базу</div><b>${fmtHM(doneM)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHM(totalM)}</span></div>`;
+    banner.innerHTML=`<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Учёт часов за сегодня (1 урок = 1 час, Круг не в счёт)</div><div style="font-size:14px;margin-top:3px">Проведено учебных уроков: <b>${doneC} из ${totalC}</b></div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Зачислено в базу</div><b>${fmtHoursCount(doneH)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHoursCount(totalH)}</span></div>`;
   }
 }
 
-/* 2. УЧИТЕЛЬ: Моё расписание + отметка уроков за неделю */
+/* 2. УЧИТЕЛЬ: "Моё расписание" — 1 урок = 1 час, Круг не в счёт */
 function upgradeTeacherSchedule(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Моё расписание'||!window._lcCache.ready)return;
@@ -444,7 +701,7 @@ function upgradeTeacherSchedule(){
   const dayNames=[...byDay.keys()];
   const tabs=[['all','Все дни'],...dayNames.map(d=>[d,d])];
 
-  let html=`<div class="lux-hours-banner"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Мои часы за текущую неделю</div><div style="font-size:14px;margin-top:3px">Отмечено проведёнными: <b>${stats.doneCount} из ${stats.planCount}</b> занятий</div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Подтверждено в базе</div><b>${fmtHM(stats.doneMins)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHM(stats.planMins)}</span></div></div>`;
+  let html=`<div class="lux-hours-banner"><div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Мои часы за неделю (1 урок = 1 час, Круг не в счёт)</div><div style="font-size:14px;margin-top:3px">Проведено учебных занятий: <b>${stats.doneCount} из ${stats.planCount}</b></div></div><div style="text-align:right"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.8">Подтверждено в базе</div><b>${fmtHoursCount(stats.doneHours)}</b> <span style="font-size:12px;opacity:.75">из ${fmtHoursCount(stats.planHours)}</span></div></div>`;
   if(!dayNames.length){
     html+=`<div class="empty">Вам пока не назначены занятия.</div>`;
     container.innerHTML=html;return;
@@ -454,10 +711,12 @@ function upgradeTeacherSchedule(){
     if(window._lcSchedDay!=='all'&&window._lcSchedDay!==dName)return;
     const {date,lessons}=byDay.get(dName);
     let num=0;
-    html+=`<div class="lux-sched-day"><div class="sh"><div><h2>${dName}</h2><p>${lessons.length} занятий · нажми кнопку справа, чтобы отметить урок проведённым</p></div></div><div class="list">${lessons.map(l=>{
-      const isRout=/завтрак|обед|полдник|перемена|круг|продлёнка/i.test(l.subj);
-      if(!isRout)num++;
-      return `<div class="row" style="flex-wrap:wrap"><span class="time">${isRout?'Режим':num+' ур.'}<br>${l.start}–${l.end}</span><div class="rowmain"><strong>${l.target} ·${l.subj}</strong><small>${l.mins} мин${l.topic&&l.topic!=='Урок проведён'?' · Тема: '+l.topic:''}</small></div><button type="button" class="lux-done-btn ${l.done?'is-done':''}" onclick="toggleLessonDone('${l.scheduleId}','${date}',null,event)">${l.done?`✓ Проведён (${l.mins} мин)`:`○ Отметить проведённым`}</button></div>`;
+    html+=`<div class="lux-sched-day"><div class="sh"><div><h2>${dName}</h2><p>${lessons.length} занятий · каждый учебный урок = 1 час в табель</p></div></div><div class="list">${lessons.map(l=>{
+      if(!l.nonCount)num++;
+      const rightBtn=l.nonCount
+        ?`<span class="chip">Круг / Режим · без часов</span>`
+        :`<button type="button" class="lux-done-btn ${l.done?'is-done':''}" onclick="toggleLessonDone('${l.scheduleId}','${date}',null,event)">${l.done?`✓ Проведён (1 ч)`:`○ Отметить проведённым (+1 ч)`}</button>`;
+      return `<div class="row" style="flex-wrap:wrap"><span class="time">${l.nonCount?'Режим':num+' ур.'}<br>${l.start}–${l.end}</span><div class="rowmain"><strong>${escH(l.target)} · ${escH(l.subj)}</strong><small>${l.nonCount?'Не идёт в базу часов':'1 академический час'}${l.topic&&l.topic!=='Урок проведён'?' · Тема: '+escH(l.topic):''}</small></div>${rightBtn}</div>`;
     }).join('')}</div></div>`;
   });
   container.innerHTML=html;
@@ -466,13 +725,18 @@ function upgradeTeacherSchedule(){
   });
 }
 
-/* 3. АДМИНИСТРАТОР: Табель и база часов работы в разделе "Педагоги" */
+/* 3. АДМИН: Табель часов педагогов (1 урок = 1 час, Круг не в счёт) */
 window.openTeacherHoursModal=(tid,tName)=>{
   const st=calcTeacherStats(tid,window._lcFrom,window._lcTo);
-  const rows=st.items.map(i=>`<div class="row" style="flex-wrap:wrap"><span class="time">${i.date.slice(5)}<br>${i.start}–${i.end}</span><div class="rowmain"><strong>${i.target} · ${i.subj}</strong><small>${i.mins} мин ${i.topic?'· '+i.topic:''}</small></div><button type="button" class="lux-done-btn ${i.done?'is-done':''}" onclick="toggleLessonDone('${i.scheduleId}','${i.date}','${tid}',event);setTimeout(()=>openTeacherHoursModal('${tid}','${tName}'),350)">${i.done?'✓ Учтён ('+i.mins+' мин)':'○ Подтвердить'}</button></div>`).join('')||'<div class="empty">За выбранный период уроков по расписанию нет.</div>';
+  const rows=st.items.map(i=>{
+    const right=i.nonCount
+      ?`<span class="chip">Круг / Режим (0 ч)</span>`
+      :`<button type="button" class="lux-done-btn ${i.done?'is-done':''}" onclick="toggleLessonDone('${i.scheduleId}','${i.date}','${tid}',event);setTimeout(()=>openTeacherHoursModal('${tid}','${tName}'),350)">${i.done?'✓ Учтён (1 ч)':'○ Подтвердить (+1 ч)'}</button>`;
+    return `<div class="row" style="flex-wrap:wrap"><span class="time">${i.date.slice(5)}<br>${i.start}–${i.end}</span><div class="rowmain"><strong>${escH(i.target)} · ${escH(i.subj)}</strong><small>${i.nonCount?'Не учитывается в часах':'1 час'} ${i.topic?'· '+escH(i.topic):''}</small></div>${right}</div>`;
+  }).join('')||'<div class="empty">За выбранный период уроков по расписанию нет.</div>';
   const ex=document.getElementById('modal');if(ex)ex.remove();
   const d=document.createElement('div');d.id='modal';d.className='modalbg';
-  d.innerHTML=`<div class="modal" style="width:min(680px,100%)" onclick="event.stopPropagation()"><div class="mh"><h2>База часов · ${tName}</h2><button class="x" onclick="closeModal()">×</button></div><div class="lux-hours-banner" style="margin-bottom:14px"><div><div style="font-size:11px;opacity:.8">Период: ${window._lcFrom} — ${window._lcTo}</div><div style="font-size:14px;margin-top:2px">Проведено: <b>${st.doneCount} из ${st.planCount}</b> уроков</div></div><div style="text-align:right"><b>${fmtHM(st.doneMins)}</b><div style="font-size:11px;opacity:.8">План: ${fmtHM(st.planMins)}</div></div></div><div class="list" style="max-height:58vh;overflow:auto">${rows}</div></div>`;
+  d.innerHTML=`<div class="modal" style="width:min(680px,100%)" onclick="event.stopPropagation()"><div class="mh"><h2>База часов · ${escH(tName)}</h2><button class="x" onclick="closeModal()">×</button></div><div class="lux-hours-banner" style="margin-bottom:14px"><div><div style="font-size:11px;opacity:.8">Период: ${window._lcFrom} — ${window._lcTo}</div><div style="font-size:14px;margin-top:2px">Проведено уроков (без Круга): <b>${st.doneCount} из ${st.planCount}</b></div></div><div style="text-align:right"><b>${fmtHoursCount(st.doneHours)}</b><div style="font-size:11px;opacity:.8">План: ${fmtHoursCount(st.planHours)}</div></div></div><div class="list" style="max-height:58vh;overflow:auto">${rows}</div></div>`;
   d.onclick=()=>d.remove();document.body.appendChild(d);
 };
 
@@ -480,6 +744,18 @@ function upgradeAdminTeachersHours(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Педагоги'||!window._lcCache.ready)return;
   const teachers=window._lcCache.profiles.filter(p=>p.role==='teacher'&&p.active);
+  /* Обновляем также оранжевые плашки на карточках педагогов (1 урок = 1 час, без Круга) */
+  const mon=isoDate(getMonday()),fri=isoDate(addDays(getMonday(),4));
+  document.querySelectorAll('.main .grid.g3 > .card').forEach(card=>{
+    const name=card.querySelector('b')?.textContent.trim();
+    const t=window._lcCache.profiles.find(p=>p.full_name===name&&p.role==='teacher');
+    const orangeChip=card.querySelector('.chip.orange');
+    if(t&&orangeChip){
+      const wSt=calcTeacherStats(t.id,mon,fri);
+      orangeChip.textContent=`${wSt.doneHours} ч подтверждено`;
+    }
+  });
+
   let box=document.querySelector('.main .lux-admin-timesheet');
   if(!box){
     box=document.createElement('div');box.className='card lux-admin-timesheet';
@@ -489,21 +765,21 @@ function upgradeAdminTeachersHours(){
   }
   const setPreset=(p)=>{
     window._lcPeriod=p;
-    const now=new Date(),mon=getMonday(now);
-    if(p==='week'){window._lcFrom=isoDate(mon);window._lcTo=isoDate(addDays(mon,4));}
-    if(p==='prev'){const pm=addDays(mon,-7);window._lcFrom=isoDate(pm);window._lcTo=isoDate(addDays(pm,4));}
+    const now=new Date(),m=getMonday(now);
+    if(p==='week'){window._lcFrom=isoDate(m);window._lcTo=isoDate(addDays(m,4));}
+    if(p==='prev'){const pm=addDays(m,-7);window._lcFrom=isoDate(pm);window._lcTo=isoDate(addDays(pm,4));}
     if(p==='month'){const f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);window._lcFrom=isoDate(f);window._lcTo=isoDate(l);}
     upgradeAdminTeachersHours();
   };
-  let totalDoneM=0,totalDoneC=0;
+  let totalDoneH=0,totalDoneC=0;
   const tRows=teachers.map(t=>{
     const st=calcTeacherStats(t.id,window._lcFrom,window._lcTo);
-    totalDoneM+=st.doneMins;totalDoneC+=st.doneCount;
+    totalDoneH+=st.doneHours;totalDoneC+=st.doneCount;
     const safeName=String(t.full_name||'Педагог').replace(/'/g,'');
-    return `<tr><td><b>${t.full_name}</b></td><td><span class="chip ${st.doneCount?'green':''}">${st.doneCount} из ${st.planCount} ур.</span></td><td><b style="color:var(--green);font-size:15px">${fmtHM(st.doneMins)}</b></td><td style="color:var(--muted)">${fmtHM(st.planMins)}</td><td><button type="button" class="btn soft" onclick="openTeacherHoursModal('${t.id}','${safeName}')">Детализация / Отметить ▾</button></td></tr>`;
+    return `<tr><td><b>${escH(t.full_name)}</b></td><td><span class="chip ${st.doneCount?'green':''}">${st.doneCount} из ${st.planCount} ур.</span></td><td><b style="color:var(--green);font-size:15px">${fmtHoursCount(st.doneHours)}</b></td><td style="color:var(--muted)">${fmtHoursCount(st.planHours)}</td><td><button type="button" class="btn soft" onclick="openTeacherHoursModal('${t.id}','${safeName}')">Детализация / Отметить ▾</button></td></tr>`;
   }).join('')||'<tr><td colspan="5">Нет активных педагогов</td></tr>';
 
-  box.innerHTML=`<div class="sh"><div><h2>📊 Табель и база часов работы педагогов</h2><p>Часы начисляются автоматически, когда педагог отмечает урок проведённым, заполняет тему или посещаемость</p></div><span class="badge">Всего подтверждено: ${fmtHM(totalDoneM)} (${totalDoneC} ур.)</span></div>
+  box.innerHTML=`<div class="sh"><div><h2>📊 Табель и база часов работы педагогов</h2><p>1 проведённый урок = 1 час · «Круг» и режимные моменты в часы не идут</p></div><span class="badge">Всего за период: ${fmtHoursCount(totalDoneH)} (${totalDoneC} ур.)</span></div>
   <div class="lux-filter-bar" style="margin-bottom:14px">
     <div class="lux-grade-pills">
       <button type="button" class="lux-gpill ${window._lcPeriod==='week'?'on':''}" data-p="week">Эта неделя</button>
@@ -516,7 +792,7 @@ function upgradeAdminTeachersHours(){
       <input type="date" id="luxTo" value="${window._lcTo}" style="width:auto;padding:6px 10px">
     </div>
   </div>
-  <div class="table"><table><thead><tr><th>Педагог</th><th>Проведено уроков</th><th>Отработано (подтверждено)</th><th>План по расписанию</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>`;
+  <div class="table"><table><thead><tr><th>Педагог</th><th>Проведено уроков</th><th>Отработано часов</th><th>План (часов)</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>`;
 
   box.querySelectorAll('.lux-gpill[data-p]').forEach(b=>b.onclick=()=>setPreset(b.dataset.p));
   const inpF=box.querySelector('#luxFrom'),inpT=box.querySelector('#luxTo');
@@ -524,7 +800,23 @@ function upgradeAdminTeachersHours(){
   if(inpT)inpT.onchange=()=>{window._lcPeriod='custom';window._lcTo=inpT.value;upgradeAdminTeachersHours()};
 }
 
-/* 4. АДМИНИСТРАТОР: Шахматка расписания по классам */
+/* 4. РОДИТЕЛЬ: Автоматический блок Табеля (100 баллов) на Главной и в Неделе */
+function upgradeParentTabelBlock(){
+  const c=window._lcCache;
+  if(!c.ready||c.me?.role!=='parent')return;
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  if(!h1.startsWith('Сегодня у')&&h1!=='Неделя')return;
+  if(document.querySelector('.main .lux-parent-tabel'))return;
+  const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
+  const selId=sessionStorage.getItem('PARENT_CHILD')||myKids[0]?.id;
+  if(!selId)return;
+  const sec=document.createElement('section');
+  sec.className='section card lux-parent-tabel';
+  sec.innerHTML=buildChildTabelHtml(selId,false);
+  document.querySelector('.main')?.appendChild(sec);
+}
+
+/* 5. Шахматка расписания для Админа */
 function upgradeAdminSchedule(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Расписание')return;
@@ -612,6 +904,7 @@ function upgradeAdminSchedule(){
 
 function upgradeTablesAndLists(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  /* Добавляем кнопку ★ Табель (100 б.) на карточки детей в Классах */
   if(h1==='Классы'){
     const grid=document.querySelector('.main > .grid.g3');
     if(!grid||grid.dataset.upgraded)return;
@@ -620,6 +913,15 @@ function upgradeTablesAndLists(){
     cards.forEach(c=>{
       const clsName=c.querySelector('.sh h2')?.textContent.trim()||'';
       c.dataset.grade=extractGrade(clsName);c.dataset.cls=clsName.toLowerCase();
+      c.querySelectorAll('.list .row').forEach(r=>{
+        const editBtn=r.querySelector('button[onclick^="editChild"]');
+        const kidId=editBtn?.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+        if(kidId&&!r.querySelector('.lux-tbtn')){
+          const tb=document.createElement('button');tb.type='button';tb.className='btn primary lux-tbtn';
+          tb.textContent='★ Табель';tb.onclick=()=>window.openChildTabelModal(kidId);
+          editBtn.before(tb);
+        }
+      });
     });
     cards.sort((a,b)=>(a.dataset.grade.localeCompare(b.dataset.grade))||(a.dataset.cls.localeCompare(b.dataset.cls)));
     cards.forEach(c=>grid.appendChild(c));
@@ -645,11 +947,13 @@ function upgradeTablesAndLists(){
       rows.forEach(tr=>{
         const tds=tr.querySelectorAll('td');if(tds.length<4)return;
         const nameHtml=tds[0].innerHTML,clsText=tds[1].textContent.trim(),infoHtml=tds[2].innerHTML,btnsHtml=tds[3].innerHTML;
+        const kidId=btnsHtml.match(/'([0-9a-f-]{20,})'/i)?.[1]||'';
         const grade=extractGrade(clsText);
         const card=document.createElement('div');card.className='lux-kid-card';
         card.dataset.grade=grade;card.dataset.cls=clsText;card.dataset.search=(tds[0].textContent+' '+clsText).toLowerCase();
         const initials=(tds[0].querySelector('b')?.textContent||'Р').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
-        card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${initials}</span><div class="rowmain">${nameHtml}</div><span class="lux-kid-cls">${clsText||'—'}</span></div><div style="font-size:12px">${infoHtml}</div><div class="lux-kid-actions">${btnsHtml}</div>`;
+        const tabelBtn=kidId?`<button type="button" class="btn primary" onclick="openChildTabelModal('${kidId}')">★ Табель (100 б.)</button><button type="button" class="btn soft" onclick="openAddScoreModal('${kidId}','',false)">+ Балл</button>`:'';
+        card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${initials}</span><div class="rowmain">${nameHtml}</div><span class="lux-kid-cls">${clsText||'—'}</span></div><div style="font-size:12px">${infoHtml}</div><div class="lux-kid-actions">${tabelBtn}${btnsHtml}</div>`;
         items.push(card);
       });
       if(!items.length)return;
@@ -690,6 +994,13 @@ function upgradeTablesAndLists(){
       const title=r.querySelector('strong')?.textContent||'';
       r.dataset.grade=extractGrade((title.split('·')[1]||'').trim());
       r.dataset.search=title.toLowerCase();
+      const fbBtn=r.querySelector('button[onclick^="feedbackModal"]');
+      const kidId=fbBtn?.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+      if(kidId&&!r.querySelector('.lux-tbtn')){
+        const tb=document.createElement('button');tb.type='button';tb.className='btn ghost lux-tbtn';
+        tb.textContent='★ Табель (100 б.)';tb.onclick=()=>window.openChildTabelModal(kidId);
+        fbBtn.before(tb);
+      }
     });
     rows.sort((a,b)=>(a.dataset.grade.localeCompare(b.dataset.grade))||(a.dataset.search.localeCompare(b.dataset.search)));
     rows.forEach(r=>list.appendChild(r));
@@ -707,11 +1018,14 @@ function upgradeTablesAndLists(){
 
 function onRender(){
   buildTopDropdown();
+  if(window._lcTabelMode){renderTabelPageView();return;}
+  cleanObservationFeeds();
   upgradeTablesAndLists();
   upgradeAdminSchedule();
   upgradeTeacherToday();
   upgradeTeacherSchedule();
   upgradeAdminTeachersHours();
+  upgradeParentTabelBlock();
 }
 window.addEventListener('DOMContentLoaded',async()=>{
   await syncCache();
