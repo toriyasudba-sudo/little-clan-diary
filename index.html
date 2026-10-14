@@ -24,10 +24,16 @@
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg-top),var(--bg));color:var(--ink);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit}
+
+/* Фикс размера и заливки всех SVG-иконок */
+svg.lux-svg{width:19px!important;height:19px!important;min-width:19px;stroke:var(--green)!important;stroke-width:1.6!important;fill:none!important;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px;display:inline-block}
+.ico svg.lux-svg{width:20px!important;height:20px!important;vertical-align:0}
 .brand{display:flex;align-items:center;gap:11px}
 .logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#243829,#162419);border:1px solid var(--gold);display:grid;place-items:center;color:var(--gold);box-shadow:0 6px 18px rgba(22,36,25,.16);flex:0 0 auto;font-size:20px}
+.logo svg{width:22px!important;height:22px!important;stroke:var(--gold)!important;stroke-width:1.6!important;fill:none!important}
 .brand strong{display:block;font-family:var(--font-serif);font-size:21px;font-weight:700;line-height:1.1}
 .brand small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-top:2px}
+
 .login{min-height:100vh;display:grid;place-items:center;padding:18px;background:radial-gradient(circle at 12% 18%,rgba(197,165,114,.16) 0,transparent 38%)}
 .loginbox{width:min(980px,100%);display:grid;grid-template-columns:1.1fr .9fr;border:1px solid var(--goldSoft);border-radius:28px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
 .hero{padding:44px;background:linear-gradient(145deg,#FAF5EC,#EFECE4);border-right:1px solid var(--line)}
@@ -36,6 +42,7 @@ button,input,select,textarea{font:inherit}
 .hero p{font-size:16px;color:var(--muted);line-height:1.65}
 .pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
 .pill{padding:8px 13px;border:1px solid rgba(197,165,114,.38);background:#FFFDF9;border-radius:99px;font-size:11px;font-weight:600}
+.pill b{color:var(--gold);margin-right:4px}
 .loginform{padding:42px;display:flex;flex-direction:column;justify-content:center}
 .loginform h2{margin:0 0 6px;font-family:var(--font-serif);font-size:32px;font-weight:600}
 .loginform>p{margin:0 0 22px;color:var(--muted);font-size:14px}
@@ -132,47 +139,46 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* Верхнее меню, фильтры 1-4 и таблица-шахматка расписания */
+/* Верхнее меню, фильтры и шахматка */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
-.lux-menu-wrap{display:flex;align-items:center;gap:8px;background:#FAF5EC;border:1px solid var(--gold);border-radius:14px;padding:4px 10px}
+.mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
+.lux-menu-wrap{display:flex;align-items:center;gap:8px;background:#FAF5EC;border:1px solid var(--gold);border-radius:14px;padding:4px 12px}
 .lux-menu-wrap span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
-.lux-top-select{border:0!important;background:transparent!important;padding:6px 4px!important;font-weight:700;font-size:13.5px!important;color:var(--green)!important;cursor:pointer;width:100%;box-shadow:none!important}
-.lux-filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:16px;background:linear-gradient(145deg,#FFFDF9,#F6F0E4);border:1px solid rgba(197,165,114,.38);border-radius:18px}
+.lux-top-select{border:0!important;background:transparent!important;padding:6px 4px!important;font-weight:700;font-size:14px!important;color:var(--green)!important;cursor:pointer;width:100%;box-shadow:none!important}
+.lux-filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:13px 15px;margin-bottom:16px;background:linear-gradient(145deg,#FFFDF9,#F6F0E4);border:1px solid rgba(197,165,114,.38);border-radius:18px}
 .lux-grade-pills{display:flex;flex-wrap:wrap;gap:6px}
-.lux-gpill{border:1px solid var(--line);background:#FFFDF9;color:var(--ink);padding:7px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.lux-gpill{border:1px solid var(--line);background:#FFFDF9;color:var(--ink);padding:7px 13px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer}
 .lux-gpill.on{background:var(--green);color:#FAF7F2;border-color:var(--gold)}
 .lux-search{max-width:240px;padding:8px 12px!important;border-radius:99px!important;font-size:12.5px!important}
-.lux-kids-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.lux-kids-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .lux-kid-card{background:linear-gradient(180deg,#FFFFFF,#FCF9F4);border:1px solid rgba(197,165,114,.32);border-radius:18px;padding:15px;display:flex;flex-direction:column;gap:10px}
 .lux-kid-head{display:flex;align-items:center;gap:11px}
 .lux-kid-cls{margin-left:auto;padding:5px 11px;border-radius:99px;background:#F3ECE0;border:1px solid var(--gold);color:var(--green);font-family:var(--font-serif);font-weight:700;font-size:14px}
 .lux-kid-actions{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px;border-top:1px solid #EFE8DC}
 .lux-grade-divider{grid-column:1/-1;font-family:var(--font-serif);font-size:22px;font-weight:700;color:var(--green);margin:10px 0 2px;padding-bottom:5px;border-bottom:1px solid rgba(197,165,114,.35)}
 
-/* Шахматка расписания по классам */
-.lux-sched-day{margin-bottom:22px;padding:18px;border-radius:22px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
-.lux-sched-table{width:100%;border-collapse:separate;border-spacing:0;min-width:680px}
-.lux-sched-table th{background:#F6F0E4;color:var(--green);font-family:var(--font-serif);font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;padding:11px 12px;border-bottom:1.5px solid var(--gold);border-right:1px solid #EFE8DC;text-align:center}
-.lux-sched-table th:first-child{position:sticky;left:0;z-index:3;background:#EFE7D6;text-align:left;width:128px;min-width:128px}
+.lux-sched-day{margin-bottom:20px;padding:18px;border-radius:22px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
+.lux-sched-table{width:100%;border-collapse:separate;border-spacing:0;min-width:640px}
+.lux-sched-table th{background:#F6F0E4;color:var(--green);font-family:var(--font-serif);font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;padding:10px 12px;border-bottom:1.5px solid var(--gold);border-right:1px solid #EFE8DC;text-align:center}
+.lux-sched-table th:first-child{position:sticky;left:0;z-index:3;background:#EFE7D6;text-align:left;width:122px;min-width:122px}
 .lux-sched-table td{vertical-align:top;padding:8px;border-bottom:1px solid #EFE8DC;border-right:1px solid #EFE8DC;background:#FFFDF9}
-.lux-sched-table td.lux-time-col{position:sticky;left:0;z-index:2;background:#FAF6EE;width:128px;min-width:128px;vertical-align:middle}
-.lux-lnum{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--green);color:#FAF7F2;font-size:10px;font-weight:700;letter-spacing:.04em;margin-bottom:4px}
-.lux-ltime{display:block;font-family:var(--font-serif);font-size:15px;font-weight:700;color:var(--ink)}
-.lux-cell-item{position:relative;padding:8px 26px 8px 10px;border-radius:12px;background:linear-gradient(145deg,#FAF6EE,#F3ECE0);border:1px solid rgba(197,165,114,.4);margin-bottom:6px;cursor:pointer;transition:.15s}
+.lux-sched-table td.lux-time-col{position:sticky;left:0;z-index:2;background:#FAF6EE;width:122px;min-width:122px;vertical-align:middle}
+.lux-lnum{display:inline-block;padding:2px 8px;border-radius:99px;background:var(--green);color:#FAF7F2;font-size:10px;font-weight:700;margin-bottom:3px}
+.lux-ltime{display:block;font-family:var(--font-serif);font-size:14.5px;font-weight:700;color:var(--ink)}
+.lux-cell-item{position:relative;padding:8px 26px 8px 10px;border-radius:12px;background:linear-gradient(145deg,#FAF6EE,#F3ECE0);border:1px solid rgba(197,165,114,.4);margin-bottom:6px;cursor:pointer}
 .lux-cell-item:last-child{margin-bottom:0}
-.lux-cell-item:hover{border-color:var(--green);transform:translateY(-1px)}
 .lux-cell-item strong{display:block;font-size:12.5px;color:var(--green);line-height:1.25}
 .lux-cell-item small{display:block;font-size:11px;color:var(--muted);margin-top:3px}
 .lux-cell-del{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;border:1px solid rgba(158,71,64,.3);background:#FFFDF9;color:var(--red);font-size:13px;line-height:1;display:grid;place-items:center;cursor:pointer;padding:0}
-.lux-cell-del:hover{background:var(--red);color:#fff}
 .lux-school-wide{background:linear-gradient(90deg,#E9EFE8,#F6F1E7);border:1px solid rgba(58,82,63,.25);display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 34px 8px 14px}
 
 @media(max-width:980px){
-  .layout{display:block}.side{display:none}.main{padding:124px 14px 45px}
+  .layout{display:block}.side{display:none}.main{padding:122px 14px 45px}
   .mobiletop{position:fixed;z-index:35;top:0;left:0;right:0;display:flex;flex-direction:column;gap:8px;padding:10px 14px;background:#FAF7F2;border-bottom:1px solid rgba(197,165,114,.38);box-shadow:0 6px 20px rgba(28,34,28,.07)}
   .mobiletop-row1{display:flex;align-items:center;justify-content:space-between;width:100%;gap:8px}
   .mobiletop .brand strong{font-size:18px}.mobiletop .brand small{display:none}.mobiletop .logo{width:35px;height:35px}
+  .topright .lux-menu-wrap,.topright .badge,.topright .cloud{display:none!important}
   .g4,.g3{grid-template-columns:repeat(2,1fr)}.loginbox{grid-template-columns:1fr}.hero{border-right:0;border-bottom:1px solid var(--line)}
 }
 @media(max-width:720px){
@@ -197,7 +203,6 @@ async function getSb(){
   window._luxSb=mod.createClient(SB_URL,SB_KEY);
   return window._luxSb;
 }
-/* Исправленная функция удаления занятия из расписания */
 window.archiveSchedule=async(id,ev)=>{
   if(ev)ev.stopPropagation();
   if(!id||!confirm('Убрать это занятие из расписания?'))return;
@@ -209,7 +214,6 @@ window.archiveSchedule=async(id,ev)=>{
     if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
   }catch(e){alert('Ошибка: '+(e.message||e));}
 };
-
 function extractGrade(s){
   const m=String(s||'').trim().match(/^([1-4])(?![0-9])|([1-4])\s*кл/i);
   return m?(m[1]||m[2]):'other';
@@ -240,12 +244,6 @@ function buildTopDropdown(){
     r2.innerHTML=`<span>Меню:</span><select class="lux-top-select" onchange="window.go(this.value)">${opts}</select>`;
     mtop.appendChild(r1);mtop.appendChild(r2);
   }
-  const tr=document.querySelector('.top .topright');
-  if(tr&&!tr.querySelector('.lux-top-select')){
-    const wrap=document.createElement('div');wrap.className='lux-menu-wrap';
-    wrap.innerHTML=`<span>Раздел:</span><select class="lux-top-select" onchange="window.go(this.value)">${opts}</select>`;
-    tr.prepend(wrap);
-  }
 }
 function makeFilterBar(onUpdate,withSearch=true){
   const bar=document.createElement('div');bar.className='lux-filter-bar';
@@ -262,6 +260,64 @@ function makeFilterBar(onUpdate,withSearch=true){
   if(inp)inp.oninput=e=>{window._lcSearch=e.target.value.trim().toLowerCase();onUpdate()};
   return bar;
 }
+/* Удобное расписание для УЧИТЕЛЯ (карточки по дням вместо узкой таблицы) */
+function upgradeTeacherSchedule(){
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  if(h1!=='Моё расписание')return;
+  const card=document.querySelector('.main > .card');
+  const tWrap=card?.querySelector('.table');
+  if(!tWrap||card.dataset.upgraded)return;
+  card.dataset.upgraded='1';
+  const rows=[...tWrap.querySelectorAll('tbody tr')];
+  const byDay=new Map();
+  rows.forEach(tr=>{
+    const tds=tr.querySelectorAll('td');
+    if(tds.length<5)return;
+    const day=tds[0].textContent.trim();
+    const time=tds[1].textContent.trim();
+    const cls=tds[2].textContent.trim();
+    const subjHtml=tds[3].innerHTML;
+    const topicHtml=tds[4].innerHTML;
+    if(!byDay.has(day))byDay.set(day,[]);
+    byDay.get(day).push({time,cls,subjHtml,topicHtml});
+  });
+  if(!byDay.size){
+    card.innerHTML='<div class="empty">Вам пока не назначены занятия.</div>';
+    return;
+  }
+  const dayNames=[...byDay.keys()];
+  const wrap=document.createElement('div');
+  const bar=document.createElement('div');bar.className='lux-filter-bar';
+  const tabs=[['all','Все дни'],...dayNames.map(d=>[d,d])];
+  bar.innerHTML=`<div class="lux-grade-pills">${tabs.map(([k,l])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===k?'on':''}" data-d="${k}">${l}</button>`).join('')}</div>`;
+  wrap.appendChild(bar);
+  const box=document.createElement('div');
+  wrap.appendChild(box);
+  const renderT=()=>{
+    box.innerHTML='';
+    dayNames.forEach(d=>{
+      if(window._lcSchedDay!=='all'&&window._lcSchedDay!==d)return;
+      const ls=byDay.get(d)||[];
+      let num=0;
+      const sec=document.createElement('div');sec.className='lux-sched-day';
+      sec.innerHTML=`<div class="sh"><div><h2>${d}</h2><p>${ls.length} занятий</p></div></div><div class="list">${ls.map(l=>{
+        const isRout=/завтрак|обед|полдник|перемена|круг|продлёнка/i.test(l.subjHtml);
+        if(!isRout)num++;
+        return `<div class="row"><span class="time">${isRout?'Режим':num+' ур.'}<br>${l.time}</span><div class="rowmain"><strong>${l.cls} класс · ${l.subjHtml}</strong><small>Тема: ${l.topicHtml}</small></div></div>`;
+      }).join('')}</div>`;
+      box.appendChild(sec);
+    });
+  };
+  bar.querySelectorAll('.lux-gpill').forEach(b=>{
+    b.onclick=()=>{
+      window._lcSchedDay=b.dataset.d;
+      bar.querySelectorAll('.lux-gpill').forEach(x=>x.classList.toggle('on',x.dataset.d===window._lcSchedDay));
+      renderT();
+    };
+  });
+  card.replaceWith(wrap);
+  renderT();
+}
 function upgradeAdminSchedule(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Расписание')return;
@@ -271,7 +327,6 @@ function upgradeAdminSchedule(){
   if(!dayCards.length)return;
   const isAdmin=!!document.querySelector('.top button[onclick*="scheduleModal"]');
   grid.dataset.upgraded='1';
-
   const daysData=[],targetSet=new Set(window._lcClasses);
   dayCards.forEach(card=>{
     const dayName=card.querySelector('.sh h2')?.textContent.trim()||'';
@@ -279,7 +334,7 @@ function upgradeAdminSchedule(){
     card.querySelectorAll('.list .row').forEach(row=>{
       const st=row.querySelector('.rowmain strong')?.textContent||'';
       const sm=row.querySelector('.rowmain small')?.textContent||'';
-      const ico=row.querySelector('.ico')?.textContent.trim()||'';
+      const ico=row.querySelector('.ico')?.innerHTML||'';
       const start=row.querySelector('.time')?.textContent.trim()||'';
       const btn=row.querySelector('button[onclick^="scheduleModal"]');
       const id=btn?(btn.getAttribute('onclick').match(/'([^']+)'/)?.[1]||''):'';
@@ -294,19 +349,15 @@ function upgradeAdminSchedule(){
     });
     daysData.push({dayName,lessons});
   });
-
   const cols=sortTargets([...targetSet]);
-  if(!cols.length)cols.push('1 класс','2 класс','3 класс','4 класс');
-
+  if(!cols.length)cols.push('1','2','3','4');
   const wrap=document.createElement('div');
   const bar=document.createElement('div');bar.className='lux-filter-bar';
   const dayTabs=[['all','Все дни'],...daysData.map(d=>[d.dayName,d.dayName])];
   bar.innerHTML=`<div class="lux-grade-pills">${dayTabs.map(([k,l])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===k?'on':''}" data-d="${k}">${l}</button>`).join('')}</div>`;
   wrap.appendChild(bar);
-
   const tablesBox=document.createElement('div');
   wrap.appendChild(tablesBox);
-
   const renderMatrix=()=>{
     tablesBox.innerHTML='';
     daysData.forEach(d=>{
@@ -317,8 +368,7 @@ function upgradeAdminSchedule(){
         tablesBox.appendChild(sec);return;
       }
       const slots=[...new Set(d.lessons.map(l=>l.timeRange))].sort((a,b)=>a.localeCompare(b));
-      let lessonNum=0;
-      let rowsHtml='';
+      let lessonNum=0,rowsHtml='';
       slots.forEach(slot=>{
         const slotLessons=d.lessons.filter(l=>l.timeRange===slot);
         const isOnlyRoutine=slotLessons.every(l=>/завтрак|обед|полдник|перемена|круг|продлёнка/i.test(l.subj));
@@ -338,7 +388,7 @@ function upgradeAdminSchedule(){
           rowsHtml+=`<tr><td class="lux-time-col">${badge}<span class="lux-ltime">${slot}</span></td>${tds}</tr>`;
         }
       });
-      sec.innerHTML=`<div class="sh"><div><h2>${d.dayName}</h2><p>${d.lessons.length} занятий · нажми на урок для изменения или × для удаления</p></div></div><div class="table"><table class="lux-sched-table"><thead><tr><th>№ / Время</th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+      sec.innerHTML=`<div class="sh"><div><h2>${d.dayName}</h2><p>${d.lessons.length} занятий · нажми на урок для изменения или × для удаления</p></div></div><div class="table"><table class="lux-sched-table"><thead><tr><th>№ / Время</th>${cols.map(c=>`<th>${/^[1-4]$/.test(c)?c+' класс':c}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
       tablesBox.appendChild(sec);
     });
   };
@@ -352,7 +402,6 @@ function upgradeAdminSchedule(){
   grid.replaceWith(wrap);
   renderMatrix();
 }
-
 function upgradeTablesAndLists(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1==='Классы'){
@@ -452,6 +501,7 @@ function onRender(){
   buildTopDropdown();
   upgradeTablesAndLists();
   upgradeAdminSchedule();
+  upgradeTeacherSchedule();
 }
 window.addEventListener('DOMContentLoaded',()=>{
   getSb().then(c=>c.from('classes').select('name,active').eq('active',true)).then(r=>{
