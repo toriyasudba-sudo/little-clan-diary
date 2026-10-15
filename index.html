@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* Верхнее меню, фильтры, календарь уроков и табель 100 баллов */
+/* Верхнее меню, фильтры, календарь уроков и комбинированный Табель */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -161,7 +161,6 @@ tr:last-child td{border-bottom:0}
 .lux-hours-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin-bottom:16px;border-radius:20px;background:linear-gradient(135deg,#1E3124,#2B4432);color:#FAF7F2;border:1px solid var(--gold);box-shadow:var(--shadow-card)}
 .lux-hours-banner b{font-family:var(--font-serif);font-size:28px;color:var(--gold)}
 
-/* Интерактивный календарь проведения уроков по датам */
 .lux-cal-box{background:var(--card);border:1px solid rgba(197,165,114,.38);border-radius:22px;padding:16px 18px;margin-bottom:18px;box-shadow:var(--shadow-card)}
 .lux-cal-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #EFE8DC}
 .lux-cal-title{font-family:var(--font-serif);font-size:22px;font-weight:700;color:var(--green);text-transform:capitalize}
@@ -177,14 +176,15 @@ tr:last-child td{border-bottom:0}
 .lux-cal-stat.part-done{background:var(--yellowSoft);color:#7D5B14;border:1px solid rgba(184,137,40,.35)}
 .lux-cal-stat.none-done{background:#ECE6DA;color:var(--muted)}
 
-/* Медальоны 100-балльного Табеля */
 .lux-score-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:12px;font-size:12px;font-weight:700;border:1px solid rgba(197,165,114,.45);background:#FAF6EE;margin:3px 4px 3px 0}
 .lux-score-pill b{font-family:var(--font-serif);font-size:16px;padding:2px 7px;border-radius:8px;background:var(--green);color:#FAF7F2}
 .lux-score-pill.mid b{background:var(--yellow)}
 .lux-score-pill.low b{background:var(--orange)}
+.lux-score-pill.pf-pass b{background:var(--green);font-family:var(--font-sans);font-size:11.5px;padding:3px 8px}
+.lux-score-pill.pf-fail b{background:var(--red);font-family:var(--font-sans);font-size:11.5px;padding:3px 8px}
 .lux-avg-badge{display:inline-flex;align-items:center;justify-content:center;padding:6px 13px;border-radius:99px;background:linear-gradient(145deg,#243829,#18271C);color:#FAF7F2;border:1px solid var(--gold);font-family:var(--font-serif);font-size:17px;font-weight:700}
+.lux-subsec-title{font-family:var(--font-serif);font-size:21px;font-weight:700;color:var(--green);margin:18px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 
-/* Шахматка расписания */
 .lux-sched-day{margin-bottom:20px;padding:18px;border-radius:22px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
 .lux-sched-table{width:100%;border-collapse:separate;border-spacing:0;min-width:640px}
 .lux-sched-table th{background:#F6F0E4;color:var(--green);font-family:var(--font-serif);font-size:16px;font-weight:700;text-transform:none;letter-spacing:0;padding:10px 12px;border-bottom:1.5px solid var(--gold);border-right:1px solid #EFE8DC;text-align:center}
@@ -237,7 +237,16 @@ window._lcCalMonth=isoDate().slice(0,7);
 window._lcShowMonthGrid=true;
 window._lcTabelMode=false;
 window._lcClasses=[];
-window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],children:[],parentLinks:[],observations:[]};
+window._lcLastUid=null;
+window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],childGroups:[],children:[],parentLinks:[],observations:[]};
+
+function getActiveRole(){
+  const b=document.querySelector('.mobiletop .badge, .top .badge')?.textContent.trim()||'';
+  if(b==='Родитель')return 'parent';
+  if(b==='Педагог')return 'teacher';
+  if(b==='Администратор')return 'admin';
+  return window._lcCache.me?.role||'parent';
+}
 
 /* 1 проведённый урок = 1 час, Круг и питание не идут в часы */
 function isNonCountedSubj(subjObj,rawName=''){
@@ -246,11 +255,25 @@ function isNonCountedSubj(subjObj,rawName=''){
   if(['circle','breakfast','break','lunch','snack'].includes(code))return true;
   return /^(круг|завтрак|перемена|обед|полдник)$/i.test(name);
 }
-function isNonAcademicForTabel(subjObj){
-  const code=subjObj?.code||'';
-  const name=String(subjObj?.name||'').trim();
-  if(['circle','breakfast','break','lunch','snack','extended'].includes(code))return true;
-  return /^(круг|завтрак|перемена|обед|полдник|продлёнка)$/i.test(name);
+
+/* Классификация предметов для Табеля:
+   - 'score100': ТОЛЬКО Русский язык, Математика, Литература (Чтение), Окружающий мир, Английский язык
+   - 'passfail': ТОЛЬКО ИКТ, Технология, Музыка, ИЗО, Проектная деятельность, Каллиграфия
+   - null: все остальные предметы (полностью безоценочные) */
+function getTabelSubjectMode(subjObj){
+  if(!subjObj)return null;
+  const code=String(subjObj.code||'').toLowerCase();
+  const name=String(subjObj.name||'').trim().toLowerCase();
+  if(['rus','math','reading','literature','world','eng'].includes(code))return 'score100';
+  if(/^(русский язык|математика|чтение|литература|литературное чтение|окружающий мир|английский язык)$/i.test(name))return 'score100';
+  if(['ict','technology','music','art','project','calligraphy'].includes(code))return 'passfail';
+  if(/^(икт|информатика|технология|музыка|изо|изобразительное искусство|проектная деятельность|каллиграфия)$/i.test(name))return 'passfail';
+  return null;
+}
+function displayTabelSubjName(s){
+  if(!s)return 'Предмет';
+  if(s.code==='reading'||/^чтение$/i.test(s.name))return 'Литература (Чтение)';
+  return s.name;
 }
 function fmtHoursCount(h){return `${h} ч`}
 
@@ -264,13 +287,15 @@ async function getSb(){
   window._luxSb=mod.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
   return window._luxSb;
 }
-async function syncCache(){
+async function syncCache(force=false){
   try{
     const client=await getSb();
     const {data:{session}}=await client.auth.getSession();
-    if(!session?.user?.id)return;
-    const uid=session.user.id;
-    const [meR,schR,recR,attR,subR,profR,clsR,subjR,grpR,chR,plR,obsR]=await Promise.all([
+    const uid=session?.user?.id||null;
+    if(!uid){window._lcCache.ready=false;window._lcLastUid=null;return;}
+    if(!force&&window._lcCache.ready&&window._lcLastUid===uid)return;
+    window._lcLastUid=uid;
+    const [meR,schR,recR,attR,subR,profR,clsR,subjR,grpR,cgR,chR,plR,obsR]=await Promise.all([
       client.from('profiles').select('id,school_id,role,full_name').eq('id',uid).maybeSingle(),
       client.from('schedule').select('*').eq('active',true),
       client.from('lesson_records').select('*'),
@@ -279,22 +304,50 @@ async function syncCache(){
       client.from('profiles').select('id,school_id,role,full_name,active'),
       client.from('classes').select('id,name,active'),
       client.from('subjects').select('id,code,name,icon,category,active'),
-      client.from('groups').select('id,name'),
-      client.from('children').select('id,school_id,class_id,first_name,last_name,active'),
+      client.from('groups').select('id,name,group_type,active'),
+      client.from('child_groups').select('child_id,group_id'),
+      client.from('children').select('id,school_id,class_id,first_name,last_name,aftercare_active,active'),
       client.from('child_parents').select('child_id,parent_id'),
       client.from('observations').select('*')
     ]);
+    let subjectsList=subjR.data||[];
+    /* Автоматически добавляем "Каллиграфию" в предметы школы, если её ещё нет */
+    if(meR.data?.school_id&&!subjectsList.some(s=>s.code==='calligraphy'||/каллиграф/i.test(s.name))){
+      const ins=await client.from('subjects').upsert({school_id:meR.data.school_id,code:'calligraphy',name:'Каллиграфия',icon:'✒️',category:'lesson',active:true},{onConflict:'school_id,code',ignoreDuplicates:true}).select();
+      if(ins.data?.length)subjectsList=[...subjectsList,...ins.data];
+    }
     window._lcCache={
       ready:true,me:meR.data,
       schedule:schR.data||[],records:recR.data||[],attendance:attR.data||[],
       subs:subR.data||[],profiles:profR.data||[],classes:clsR.data||[],
-      subjects:subjR.data||[],groups:grpR.data||[],
+      subjects:subjectsList,groups:grpR.data||[],childGroups:cgR.data||[],
       children:(chR.data||[]).map(k=>({...k,name:[k.last_name,k.first_name].filter(Boolean).join(' ')})),
       parentLinks:plR.data||[],observations:obsR.data||[]
     };
     if(clsR.data)window._lcClasses=clsR.data.filter(x=>x.active).map(x=>x.name);
   }catch(e){console.warn('Cache sync:',e)}
 }
+
+function isLessonForChild(l,childObj){
+  if(!l||!childObj)return false;
+  const c=window._lcCache;
+  const myGroupIds=new Set(c.childGroups.filter(x=>x.child_id===childObj.id).map(x=>x.group_id));
+  if(l.group_id)return myGroupIds.has(l.group_id);
+  if(l.audience_type==='group')return l.group_id?myGroupIds.has(l.group_id):false;
+  if(l.audience_type==='school')return true;
+  if(l.audience_type==='aftercare')return childObj.aftercare_active!==false;
+  if(l.audience_type==='class'||!l.audience_type)return l.class_id===childObj.class_id;
+  return false;
+}
+
+function getSelectedParentChild(){
+  const c=window._lcCache;
+  if(!c.me)return null;
+  const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id&&k.active)).filter(Boolean);
+  const selId=sessionStorage.getItem('PARENT_CHILD');
+  return myKids.find(x=>x.id===selId)||myKids[0]||null;
+}
+
 function isLessonDone(scheduleId,dateStr){
   const c=window._lcCache;
   return c.records.some(r=>r.schedule_id===scheduleId&&r.lesson_date===dateStr)||
@@ -335,7 +388,6 @@ function calcTeacherStats(teacherId,fromStr,toStr){
   return {doneHours,planHours,doneCount,planCount,items};
 }
 
-/* Интерактивный виджет календаря по датам с индикацией проведённых уроков */
 function buildCalendarWidgetHtml(teacherIdOrNull){
   const [yStr,mStr]=window._lcCalMonth.split('-');
   const y=Number(yStr),m=Number(mStr)-1;
@@ -419,8 +471,9 @@ window.shiftCalMonth=(delta)=>{
 
 window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   if(ev)ev.stopPropagation();
+  if(getActiveRole()==='parent')return;
   const client=await getSb();
-  await syncCache();
+  await syncCache(true);
   const c=window._lcCache;
   if(!c.me)return alert('Сессия не найдена, обновите страницу');
   const existing=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date===dateStr);
@@ -439,32 +492,35 @@ window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
     });
     if(error)return alert('Не удалось отметить урок: '+error.message);
   }
-  await syncCache();
+  await syncCache(true);
   if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
   onRender();
 };
 
 window.archiveSchedule=async(id,ev)=>{
   if(ev)ev.stopPropagation();
+  if(getActiveRole()!=='admin')return;
   if(!id||!confirm('Убрать это занятие из расписания?'))return;
   const client=await getSb();
   const {error}=await client.from('schedule').update({active:false}).eq('id',id);
   if(error)return alert('Ошибка удаления: '+error.message);
   window.closeModal?.();
-  await syncCache();
+  await syncCache(true);
   if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
   onRender();
 };
 
-/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ (100 БАЛЛОВ · ТОЛЬКО ПРОВЕРОЧНЫЕ И КОНТРОЛЬНЫЕ) --- */
+/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ: 5 предметов (100 баллов) + 6 предметов (Зачёт / Незачёт) --- */
 function parseTabelObs(o){
   const t=o.tags||[];
   if(t[0]==='__TABEL_DELETED__')return null;
   if(t[0]==='__TABEL__'){
-    return {id:o.id,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:Number(t[2]||0),topic:o.note||''};
+    return {id:o.id,kind:'score100',childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:Number(t[2]||0),topic:o.note||''};
   }
-  const m=String(o.note||'').match(/^\[(Проверочная работа|Контрольная работа)\s*·\s*(\d{1,3})\/100\]\s*(.*)$/i);
-  if(m)return {id:o.id,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:m[1],score:Number(m[2]),topic:m[3]||''};
+  if(t[0]==='__TABEL_PF__'){
+    const st=t[2]==='fail'?'fail':'pass';
+    return {id:o.id,kind:'passfail',childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Зачётная работа',status:st,label:st==='pass'?'Зачёт':'Незачёт',topic:o.note||''};
+  }
   return null;
 }
 function getChildScores(childId){
@@ -472,76 +528,143 @@ function getChildScores(childId){
 }
 function cleanObservationFeeds(){
   document.querySelectorAll('.row, .feeditem').forEach(el=>{
-    if(el.textContent.includes('__TABEL__')||/\[(Проверочная работа|Контрольная работа)\s*·\s*\d+\/100\]/.test(el.textContent)){
+    if(el.textContent.includes('__TABEL__')||el.textContent.includes('__TABEL_PF__')){
       el.style.display='none';
     }
   });
 }
 
+window.syncScoreModalFields=()=>{
+  const sel=document.getElementById('luxTabelSubjSelect');
+  if(!sel)return;
+  const opt=sel.options[sel.selectedIndex];
+  const mode=opt?.dataset.mode||'score100';
+  const box100=document.getElementById('luxMode100Fields');
+  const boxPF=document.getElementById('luxModePFFields');
+  const scoreInp=document.getElementById('luxScoreInput');
+  if(mode==='passfail'){
+    if(box100)box100.style.display='none';
+    if(boxPF)boxPF.style.display='grid';
+    if(scoreInp)scoreInp.required=false;
+  }else{
+    if(box100)box100.style.display='grid';
+    if(boxPF)boxPF.style.display='none';
+    if(scoreInp)scoreInp.required=true;
+  }
+};
+
 window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
+  if(getActiveRole()==='parent')return;
   const c=window._lcCache;
   const kids=c.children.filter(k=>k.active).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-  const subs=c.subjects.filter(s=>s.active&&!isNonAcademicForTabel(s));
+  const scoreSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='score100');
+  const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail');
+
   const ex=document.getElementById('scoreModal');if(ex)ex.remove();
   const d=document.createElement('div');d.id='scoreModal';d.className='modalbg';d.style.zIndex='70';
   d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
-    <div class="mh"><h2>Выставить балл (из 100)</h2><button class="x" onclick="document.getElementById('scoreModal').remove()">×</button></div>
-    <p style="margin:0 0 14px;font-size:12.5px;color:var(--muted)">Обычные уроки идут по безоценочной системе. В табель выставляются баллы из 100 <b>только за проверочные и контрольные работы</b>.</p>
+    <div class="mh"><h2>Внести результат в Табель</h2><button class="x" onclick="document.getElementById('scoreModal').remove()">×</button></div>
+    <p style="margin:0 0 14px;font-size:12.5px;color:var(--muted)">
+      • <b>Баллы из 100</b> (проверочные и контрольные): Русский язык, Математика, Литература, Окружающий мир, Английский язык.<br>
+      • <b>Зачёт / Незачёт</b>: ИКТ, Технология, Музыка, ИЗО, Проектная деятельность, Каллиграфия.
+    </p>
     <form onsubmit="saveScoreEntry(event,${inModal})">
       <div class="field"><label>Ребёнок</label><select name="childId" required>${kids.map(k=>{const cl=c.classes.find(x=>x.id===k.class_id)?.name||'';return `<option value="${k.id}" ${k.id===childId?'selected':''}>${escH(k.name)} (${escH(cl)})</option>`}).join('')}</select></div>
-      <div class="formgrid">
-        <div class="field"><label>Предмет</label><select name="subjectId" required>${subs.map(s=>`<option value="${s.id}" ${s.id===subjectId?'selected':''}>${escH(s.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>Вид работы</label><select name="workType" required><option value="Проверочная работа">Проверочная работа</option><option value="Контрольная работа">Контрольная работа</option></select></div>
+      <div class="field">
+        <label>Предмет</label>
+        <select name="subjectId" id="luxTabelSubjSelect" onchange="syncScoreModalFields()" required>
+          <optgroup label="Баллы из 100 (проверочные и контрольные)">
+            ${scoreSubs.map(s=>`<option value="${s.id}" data-mode="score100" ${s.id===subjectId?'selected':''}>${escH(displayTabelSubjName(s))} (из 100 баллов)</option>`).join('')}
+          </optgroup>
+          <optgroup label="Система «Зачёт / Незачёт»">
+            ${pfSubs.map(s=>`<option value="${s.id}" data-mode="passfail" ${s.id===subjectId?'selected':''}>${escH(displayTabelSubjName(s))} (Зачёт / Незачёт)</option>`).join('')}
+          </optgroup>
+        </select>
+      </div>
+      <div class="formgrid" id="luxMode100Fields">
+        <div class="field"><label>Вид работы</label><select name="workType100"><option value="Проверочная работа">Проверочная работа</option><option value="Контрольная работа">Контрольная работа</option></select></div>
+        <div class="field"><label>Балл (от 0 до 100)</label><input type="number" id="luxScoreInput" name="score" min="0" max="100" placeholder="Например: 95"></div>
+      </div>
+      <div class="formgrid" id="luxModePFFields" style="display:none">
+        <div class="field"><label>Результат</label><select name="pfStatus"><option value="pass">✓ Зачёт</option><option value="fail">✕ Незачёт</option></select></div>
+        <div class="field"><label>Формат аттестации</label><select name="workTypePF"><option value="Зачётная работа">Зачётная работа</option><option value="Итоговый проект">Итоговый проект</option><option value="Практическая работа">Практическая работа</option></select></div>
       </div>
       <div class="formgrid">
-        <div class="field"><label>Балл (от 0 до 100)</label><input type="number" name="score" min="0" max="100" required placeholder="Например: 92"></div>
-        <div class="field"><label>Дата проведения</label><input type="date" name="date" value="${isoDate()}" required></div>
+        <div class="field"><label>Дата</label><input type="date" name="date" value="${isoDate()}" required></div>
+        <div class="field"><label>Тема работы / комментарий</label><input type="text" name="topic" required placeholder="Например: Итоговая контрольная / Проект"></div>
       </div>
-      <div class="field"><label>Тема проверочной / контрольной работы</label><input type="text" name="topic" required placeholder="Например: Итоговый диктант / Сложение и вычитание"></div>
       <div class="actions"><button type="button" class="btn ghost" onclick="document.getElementById('scoreModal').remove()">Отмена</button><button class="btn primary">Сохранить в Табель</button></div>
     </form>
   </div>`;
   d.onclick=()=>d.remove();document.body.appendChild(d);
+  window.syncScoreModalFields();
 };
 
 window.saveScoreEntry=async(e,reopenChildModal)=>{
   e.preventDefault();
+  if(getActiveRole()==='parent')return;
   const f=new FormData(e.target);
-  const childId=f.get('childId'),subjectId=f.get('subjectId'),workType=f.get('workType'),score=Math.min(100,Math.max(0,Number(f.get('score')))),date=f.get('date'),topic=f.get('topic').trim();
-  const client=await getSb();
+  const childId=f.get('childId'),subjectId=f.get('subjectId'),date=f.get('date'),topic=f.get('topic').trim();
   const c=window._lcCache;
+  const subjObj=c.subjects.find(s=>s.id===subjectId);
+  const mode=getTabelSubjectMode(subjObj);
+  let tags=[];
+  if(mode==='passfail'){
+    const st=f.get('pfStatus')==='fail'?'fail':'pass';
+    const wt=f.get('workTypePF')||'Зачётная работа';
+    tags=['__TABEL_PF__',wt,st];
+  }else{
+    const wt=f.get('workType100')||'Проверочная работа';
+    const sc=Math.min(100,Math.max(0,Number(f.get('score')||0)));
+    tags=['__TABEL__',wt,String(sc)];
+  }
+  const client=await getSb();
   const {error}=await client.from('observations').insert({
     school_id:c.me.school_id,child_id:childId,subject_id:subjectId,teacher_id:c.me.id,
-    observed_on:date,note:topic,tags:['__TABEL__',workType,String(score)]
+    observed_on:date,note:topic,tags
   });
-  if(error)return alert('Ошибка сохранения балла: '+error.message);
+  if(error)return alert('Ошибка сохранения: '+error.message);
   document.getElementById('scoreModal')?.remove();
-  await syncCache();
+  await syncCache(true);
   if(reopenChildModal)window.openChildTabelModal(childId);
   onRender();
 };
 
 window.deleteScoreEntry=async(obsId,childId)=>{
-  if(!confirm('Удалить этот балл из табеля?'))return;
+  if(getActiveRole()==='parent')return;
+  if(!confirm('Удалить эту запись из табеля?'))return;
   const client=await getSb();
   let {error}=await client.from('observations').delete().eq('id',obsId);
   if(error)await client.from('observations').update({tags:['__TABEL_DELETED__']}).eq('id',obsId);
-  await syncCache();
+  await syncCache(true);
   if(document.getElementById('modal'))window.openChildTabelModal(childId);
   onRender();
 };
 
-function buildChildTabelHtml(childId,canEdit=false){
+function buildChildTabelHtml(childId,allowEditParam=false){
+  const role=getActiveRole();
+  const canEdit=allowEditParam&&(role==='admin'||role==='teacher');
   const c=window._lcCache;
   const k=c.children.find(x=>x.id===childId);
   if(!k)return '<div class="empty">Ребёнок не найден</div>';
   const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
-  const subs=c.subjects.filter(s=>s.active&&!isNonAcademicForTabel(s));
-  const scores=getChildScores(childId);
-  const totalAvg=scores.length?Math.round(scores.reduce((a,b)=>a+b.score,0)/scores.length):null;
 
-  const rows=subs.map(s=>{
-    const sc=scores.filter(x=>x.subjectId===s.id);
+  const order100=['rus','math','reading','literature','world','eng'];
+  const scoreSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='score100')
+    .sort((a,b)=>(order100.indexOf(a.code)===-1?99:order100.indexOf(a.code))-(order100.indexOf(b.code)===-1?99:order100.indexOf(b.code)));
+
+  const orderPF=['ict','technology','music','art','project','calligraphy'];
+  const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail')
+    .sort((a,b)=>(orderPF.indexOf(a.code)===-1?99:orderPF.indexOf(a.code))-(orderPF.indexOf(b.code)===-1?99:orderPF.indexOf(b.code)));
+
+  const allEntries=getChildScores(childId);
+  const entries100=allEntries.filter(x=>x.kind==='score100');
+  const entriesPF=allEntries.filter(x=>x.kind==='passfail');
+  const totalAvg=entries100.length?Math.round(entries100.reduce((a,b)=>a+b.score,0)/entries100.length):null;
+  const passCount=entriesPF.filter(x=>x.status==='pass').length;
+
+  const rows100=scoreSubs.map(s=>{
+    const sc=entries100.filter(x=>x.subjectId===s.id);
     const avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):null;
     const pills=sc.map(x=>{
       const clsP=x.score>=80?'':x.score>=60?'mid':'low';
@@ -549,39 +672,62 @@ function buildChildTabelHtml(childId,canEdit=false){
       return `<span class="lux-score-pill ${clsP}" title="${escH(x.type)}: ${escH(x.topic)} (${x.date})"><b>${x.score}/100</b> <span>${shortT}${x.topic?' · '+escH(x.topic):''} <small style="color:var(--muted)">(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:transparent;color:var(--red);cursor:pointer;font-weight:700;padding:0 2px" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
     }).join('');
     return `<tr>
-      <td><b>${escH(s.name)}</b></td>
+      <td><b>${escH(displayTabelSubjName(s))}</b></td>
       <td>${pills||'<span style="color:var(--muted);font-size:12px">Проверочных и контрольных пока не было</span>'}</td>
       <td style="text-align:center">${avg!==null?`<span class="lux-avg-badge">${avg} / 100</span>`:'<span style="color:var(--muted)">—</span>'}</td>
       ${canEdit?`<td style="text-align:right;white-space:nowrap"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}
     </tr>`;
   }).join('');
 
+  const rowsPF=pfSubs.map(s=>{
+    const sc=entriesPF.filter(x=>x.subjectId===s.id);
+    const last=sc[sc.length-1]||null;
+    const pills=sc.map(x=>{
+      const clsP=x.status==='pass'?'pf-pass':'pf-fail';
+      return `<span class="lux-score-pill ${clsP}" title="${escH(x.type)}: ${escH(x.topic)} (${x.date})"><b>${x.status==='pass'?'✓ Зачёт':'✕ Незачёт'}</b> <span>${x.topic?escH(x.topic):escH(x.type)} <small style="color:var(--muted)">(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:transparent;color:var(--red);cursor:pointer;font-weight:700;padding:0 2px" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
+    }).join('');
+    const finalBadge=last?(last.status==='pass'?`<span class="chip green" style="font-size:12px;padding:6px 12px">✓ ЗАЧЁТ</span>`:`<span class="chip red" style="font-size:12px;padding:6px 12px">✕ НЕЗАЧЁТ</span>`):'<span style="color:var(--muted)">—</span>';
+    return `<tr>
+      <td><b>${escH(displayTabelSubjName(s))}</b></td>
+      <td>${pills||'<span style="color:var(--muted);font-size:12px">Зачётных работ пока не выставлено</span>'}</td>
+      <td style="text-align:center">${finalBadge}</td>
+      ${canEdit?`<td style="text-align:right;white-space:nowrap"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Зачёт</button></td>`:''}
+    </tr>`;
+  }).join('');
+
   return `<div class="lux-hours-banner" style="margin-bottom:14px">
     <div>
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Табель успеваемости (100-балльная шкала)</div>
-      <div style="font-size:18px;font-weight:700;margin-top:3px">${escH(k.name)} · ${escH(clsName)} класс</div>
-      <div style="font-size:12px;opacity:.8;margin-top:2px">Учитываются только проверочные и контрольные работы (остальные занятия — безоценочные)</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Академический Табель успеваемости</div>
+      <div style="font-size:19px;font-weight:700;margin-top:3px">${escH(k.name)} · ${escH(clsName)} класс</div>
+      <div style="font-size:12px;opacity:.85;margin-top:3px">5 предметов — 100-балльная шкала (проверочные/контрольные) · 6 предметов — Зачёт/Незачёт · остальные — безоценочно</div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Средний балл</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Средний балл (5 предм.)</div>
       <b>${totalAvg!==null?totalAvg+' / 100':'—'}</b>
-      <div style="font-size:11px;opacity:.8">Работ сдано: ${scores.length}</div>
+      <div style="font-size:11px;opacity:.85">Зачётов сдано: ${passCount}</div>
     </div>
   </div>
-  <div class="actions" style="margin:0 0 12px;justify-content:space-between">
+  <div class="actions" style="margin:0 0 10px;justify-content:space-between">
     <button type="button" class="btn ghost" onclick="printChildTabelPdf('${childId}')">⇩ Скачать / Печать Табеля (PDF)</button>
-    ${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл (из 100)</button>`:''}
+    ${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл или зачёт</button>`:''}
   </div>
-  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Средний балл</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  <div class="lux-subsec-title"><span>I. Основные предметы (баллы из 100 · только проверочные и контрольные)</span></div>
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Средний балл</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows100}</tbody></table></div>
+
+  <div class="lux-subsec-title"><span>II. Зачётные дисциплины (система «Зачёт / Незачёт»)</span></div>
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Зачётные работы и проекты</th><th style="text-align:center">Статус</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rowsPF}</tbody></table></div>
+  <p style="margin:10px 0 0;font-size:12px;color:var(--muted);font-style:italic">Остальные занятия и студии школы ведутся по безоценочной системе (через индивидуальные наблюдения педагогов).</p>`;
 }
 
 window.openChildTabelModal=(childId)=>{
   const c=window._lcCache;
   const k=c.children.find(x=>x.id===childId);if(!k)return;
-  const canEdit=c.me?.role==='admin'||c.me?.role==='teacher';
+  const role=getActiveRole();
+  const canEdit=role==='admin'||role==='teacher';
   window.closeModal?.();
   const d=document.createElement('div');d.id='modal';d.className='modalbg';
-  d.innerHTML=`<div class="modal" style="width:min(860px,100%)" onclick="event.stopPropagation()">
+  d.innerHTML=`<div class="modal" style="width:min(880px,100%)" onclick="event.stopPropagation()">
     <div class="mh"><h2>★ Табель успеваемости · ${escH(k.name)}</h2><button class="x" onclick="closeModal()">×</button></div>
     ${buildChildTabelHtml(childId,canEdit)}
   </div>`;
@@ -593,32 +739,34 @@ window.printChildTabelPdf=(childId)=>{
   const k=c.children.find(x=>x.id===childId);if(!k)return;
   const html=buildChildTabelHtml(childId,false);
   const w=window.open('','_blank');if(!w)return alert('Разрешите всплывающие окна');
-  w.document.write(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Табель — ${escH(k.name)}</title><style>body{font-family:Georgia,serif;padding:24px;color:#1C221C}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #DFD5C5;padding:10px;text-align:left;font-size:13px}th{background:#F6F0E4}.btn{display:none}.lux-score-pill b{font-weight:700;color:#1E3124}</style></head><body><h1>Little Clan · Табель успеваемости (100-балльная шкала)</h1>${html}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.write(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Табель — ${escH(k.name)}</title><style>body{font-family:Georgia,serif;padding:24px;color:#1C221C}table{width:100%;border-collapse:collapse;margin:8px 0 18px}th,td{border:1px solid #DFD5C5;padding:9px 11px;text-align:left;font-size:12.5px}th{background:#F6F0E4}.btn{display:none}.lux-subsec-title{font-size:18px;font-weight:700;margin-top:16px;color:#1E3124}.lux-score-pill b{font-weight:700;color:#1E3124}</style></head><body><h1>Little Clan · Табель успеваемости</h1>${html}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
 };
 
 window.openTabelPage=()=>{window._lcTabelMode=true;renderTabelPageView()};
-function renderTabelPageView(){
+async function renderTabelPageView(){
   const main=document.querySelector('.main');
-  if(!main||!window._lcCache.ready)return;
+  if(!main)return;
+  await syncCache(true);
   const c=window._lcCache;
-  const role=c.me?.role;
+  const role=getActiveRole();
+
   if(role==='parent'){
-    const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
-    const selId=sessionStorage.getItem('PARENT_CHILD')||myKids[0]?.id;
-    const k=myKids.find(x=>x.id===selId)||myKids[0];
-    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости (из 100 баллов)</h1><p>Только проверочные и контрольные работы · остальные занятия безоценочные</p></div></div>
+    const myKids=c.parentLinks.filter(x=>x.parent_id===c.me?.id).map(x=>c.children.find(k=>k.id===x.child_id&&k.active)).filter(Boolean);
+    const k=getSelectedParentChild()||myKids[0];
+    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Баллы из 100 (проверочные и контрольные по 5 предметам) и система «Зачёт / Незачёт»</p></div></div>
     ${myKids.length>1?`<div class="card" style="margin-bottom:14px"><div class="chips">${myKids.map(x=>`<button class="btn ${x.id===k?.id?'primary':'soft'}" onclick="sessionStorage.setItem('PARENT_CHILD','${x.id}');renderTabelPageView()">${escH(x.first_name)}</button>`).join('')}</div></div>`:''}
     <div class="card">${k?buildChildTabelHtml(k.id,false):'<div class="empty">Ребёнок не привязан</div>'}</div>`;
     return;
   }
+
   let kids=c.children.filter(k=>k.active);
   kids.sort((a,b)=>{
     const ca=c.classes.find(x=>x.id===a.class_id)?.name||'';
     const cb=c.classes.find(x=>x.id===b.class_id)?.name||'';
     return extractGrade(ca).localeCompare(extractGrade(cb))||ca.localeCompare(cb,'ru')||a.name.localeCompare(b.name,'ru');
   });
-  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости (100 баллов)</h1><p>Баллы из 100 выставляются только за проверочные и контрольные работы по всем предметам</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл (Проверочная / Контрольная)</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
+  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости (100 баллов и Зачёты)</h1><p>Русский, Математика, Литература, Окружающий мир, Английский — из 100 баллов · ИКТ, Технология, Музыка, ИЗО, Проекты, Каллиграфия — Зачёт/Незачёт</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл / зачёт</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
   const grid=main.querySelector('#luxTabelKidsGrid');
   const renderList=()=>{
     grid.innerHTML='';let lastG=null;const q=window._lcSearch;
@@ -632,19 +780,25 @@ function renderTabelPageView(){
         div.textContent=g==='other'?'Другие классы':`${g} параллель (${g} класс)`;
         grid.appendChild(div);
       }
-      const sc=getChildScores(k.id);
-      const avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):null;
-      const recent=sc.slice(-3).reverse().map(x=>{
-        const sName=c.subjects.find(s=>s.id===x.subjectId)?.name||'Предмет';
-        return `<span class="lux-score-pill"><b>${x.score}/100</b> <span>${escH(sName)} (${fmtShortDM(x.date)})</span></span>`;
+      const allSc=getChildScores(k.id);
+      const sc100=allSc.filter(x=>x.kind==='score100');
+      const scPF=allSc.filter(x=>x.kind==='passfail'&&x.status==='pass');
+      const avg=sc100.length?Math.round(sc100.reduce((a,b)=>a+b.score,0)/sc100.length):null;
+      const recent=allSc.slice(-3).reverse().map(x=>{
+        const sObj=c.subjects.find(s=>s.id===x.subjectId);
+        const sName=displayTabelSubjName(sObj);
+        if(x.kind==='passfail'){
+          return `<span class="lux-score-pill ${x.status==='pass'?'pf-pass':'pf-fail'}"><b>${x.status==='pass'?'Зачёт':'Незачёт'}</b> <span>${escH(sName)}</span></span>`;
+        }
+        return `<span class="lux-score-pill"><b>${x.score}/100</b> <span>${escH(sName)}</span></span>`;
       }).join('');
       const card=document.createElement('div');card.className='lux-kid-card';
       const ini=k.name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
-      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>Работ: ${sc.length} ${avg!==null?`· Средний: <b>${avg}/100</b>`:''}</small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
-      <div>${recent||'<small style="color:var(--muted)">Проверочных и контрольных пока нет</small>'}</div>
+      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>${avg!==null?`Средний балл: <b>${avg}/100</b> · `:''}Зачётов: <b>${scPF.length}</b></small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
+      <div>${recent||'<small style="color:var(--muted)">Записей в табеле пока нет</small>'}</div>
       <div class="lux-kid-actions">
         <button type="button" class="btn primary" onclick="openChildTabelModal('${k.id}')">★ Открыть полный табель</button>
-        <button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Выставить балл</button>
+        <button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Балл / Зачёт</button>
       </div>`;
       grid.appendChild(card);
     });
@@ -670,7 +824,7 @@ function buildTopDropdown(){
   if(sideNav&&!sideNav.querySelector('button[data-tabel]')){
     const b=document.createElement('button');
     b.dataset.tabel='1';b.className=window._lcTabelMode?'on':'';
-    b.textContent='★ Табель (100 баллов)';
+    b.textContent='★ Табель успеваемости';
     b.onclick=()=>window.openTabelPage();
     sideNav.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>{window._lcTabelMode=false}));
     sideNav.appendChild(b);
@@ -679,7 +833,7 @@ function buildTopDropdown(){
   if(!navBtns.length)return;
   const seen=new Set(),items=[];
   navBtns.forEach(b=>{
-    if(b.dataset.tabel){items.push({route:'__tabel__',label:'★ Табель (100 баллов)',on:window._lcTabelMode});return;}
+    if(b.dataset.tabel){items.push({route:'__tabel__',label:'★ Табель успеваемости',on:window._lcTabelMode});return;}
     const m=(b.getAttribute('onclick')||'').match(/go\(['"]([^'"]+)['"]\)/);
     if(m&&!seen.has(m[1])){seen.add(m[1]);items.push({route:m[1],label:b.textContent.trim(),on:!window._lcTabelMode&&b.classList.contains('on')})}
   });
@@ -718,8 +872,9 @@ function makeFilterBar(onUpdate,withSearch=true){
   return bar;
 }
 
-/* 1. УЧИТЕЛЬ: Раздел "Сегодня" с выбором любой даты в календаре */
+/* 1. УЧИТЕЛЬ: Раздел "Сегодня" */
 function upgradeTeacherToday(){
+  if(getActiveRole()!=='teacher')return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Сегодня'||!window._lcCache.ready)return;
   const me=window._lcCache.me;if(!me)return;
@@ -788,8 +943,9 @@ function upgradeTeacherToday(){
   `;
 }
 
-/* 2. УЧИТЕЛЬ: "Моё расписание" с интерактивным Календарём месяца и точными датами */
+/* 2. УЧИТЕЛЬ: "Моё расписание" */
 function upgradeTeacherSchedule(){
+  if(getActiveRole()!=='teacher')return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Моё расписание'||!window._lcCache.ready)return;
   const me=window._lcCache.me;if(!me)return;
@@ -857,8 +1013,96 @@ function upgradeTeacherSchedule(){
   });
 }
 
-/* 3. АДМИН: Детализация часов педагога по конкретным датам календаря */
+/* 3. РОДИТЕЛЬ: Фильтрация расписания строго по группе и классу ребёнка + просмотр Табеля */
+function upgradeParentViews(){
+  if(getActiveRole()!=='parent'||!window._lcCache.ready)return;
+  const c=window._lcCache;
+  const k=getSelectedParentChild();
+  if(!k)return;
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
+  const myGroupIds=new Set(c.childGroups.filter(x=>x.child_id===k.id).map(x=>x.group_id));
+  const myGroupNames=c.groups.filter(g=>myGroupIds.has(g.id)).map(g=>g.name);
+  const forbiddenGroupNames=new Set(c.groups.filter(g=>!myGroupIds.has(g.id)).map(g=>g.name));
+
+  if(h1.startsWith('Сегодня у')){
+    document.querySelectorAll('.main .list .row').forEach(r=>{
+      const st=r.querySelector('.rowmain strong')?.textContent||'';
+      const targetPart=(st.split('·')[0]||'').trim();
+      if(forbiddenGroupNames.has(targetPart))r.remove();
+    });
+  }
+
+  if(h1==='Расписание'){
+    let wrap=document.querySelector('.main .lux-parent-sched-wrap');
+    const oldGrid=document.querySelector('.main > .grid.g2');
+    if(!wrap){
+      wrap=document.createElement('div');wrap.className='lux-parent-sched-wrap';
+      if(oldGrid)oldGrid.replaceWith(wrap);
+      else document.querySelector('.main').appendChild(wrap);
+    }
+    const daysRu=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+    const mon=getMonday(new Date());
+    const childLessons=c.schedule.filter(l=>l.active&&isLessonForChild(l,k)).sort((a,b)=>a.weekday-b.weekday||String(a.starts_at).localeCompare(String(b.starts_at)));
+
+    const dayTabs=[['all','Вся неделя'],...[1,2,3,4,5].map(d=>[daysRu[d],daysRu[d]])];
+    let html=`<div class="lux-filter-bar">
+      <div class="chips">
+        <span class="chip green">Ребёнок: ${escH(k.name)}</span>
+        <span class="chip">Класс: ${escH(clsName||'—')}</span>
+        ${myGroupNames.length?myGroupNames.map(g=>`<span class="chip orange">Группа: ${escH(g)}</span>`).join(''):'<span class="chip">Индивидуальные группы не назначены</span>'}
+      </div>
+      <div class="lux-grade-pills">${dayTabs.map(([ key,label ])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===key?'on':''}" data-d="${key}">${label}</button>`).join('')}</div>
+    </div>`;
+
+    html+=`<div class="grid g2">`;
+    [1,2,3,4,5].forEach(wd=>{
+      const dName=daysRu[wd];
+      if(window._lcSchedDay!=='all'&&window._lcSchedDay!==dName)return;
+      const dStr=isoDate(addDays(mon,wd-1));
+      const ls=childLessons.filter(l=>Number(l.weekday)===wd);
+      let lNum=0;
+      html+=`<div class="card">
+        <div class="sh"><div><h2>${dName}</h2><p>${fmtDateRu(dStr,{day:'numeric',month:'long'})} · ${ls.length} занятий</p></div></div>
+        ${ls.length?`<div class="list">${ls.map(l=>{
+          const subjObj=c.subjects.find(s=>s.id===l.subject_id);
+          const nonC=isNonCountedSubj(subjObj,subjObj?.name||'');
+          if(!nonC)lNum++;
+          const tName=c.profiles.find(p=>p.id===effTeacher(l,dStr))?.full_name||'Педагог';
+          const targetLabel=l.audience_type==='group'||l.group_id?(c.groups.find(g=>g.id===l.group_id)?.name||'Группа'):l.audience_type==='school'?'Вся школа':l.audience_type==='aftercare'?'Продлёнка':(clsName+' класс');
+          const rec=c.records.find(r=>r.schedule_id===l.id&&r.lesson_date===dStr);
+          return `<div class="row">
+            <span class="time">${nonC?'Режим':lNum+' ур.'}<br>${String(l.starts_at).slice(0,5)}</span>
+            <span class="ico">${subjObj?.icon||'📘'}</span>
+            <div class="rowmain">
+              <strong>${escH(subjObj?.name||'Предмет')} <span class="chip ${l.group_id?'orange':'green'}" style="padding:2px 8px;font-size:10px;margin-left:4px">${escH(targetLabel)}</span></strong>
+              <small>${escH(tName)} · ${String(l.starts_at).slice(0,5)}–${String(l.ends_at).slice(0,5)}${rec?.topic&&rec.topic!=='Урок проведён'?' · Тема: '+escH(rec.topic):''}</small>
+            </div>
+          </div>`;
+        }).join('')}</div>`:'<div class="empty">Занятий нет</div>'}
+      </div>`;
+    });
+    html+=`</div>`;
+    wrap.innerHTML=html;
+    wrap.querySelectorAll('.lux-gpill[data-d]').forEach(b=>{
+      b.onclick=()=>{window._lcSchedDay=b.dataset.d;upgradeParentViews();};
+    });
+  }
+
+  if(h1.startsWith('Сегодня у')||h1==='Неделя'){
+    let sec=document.querySelector('.main .lux-parent-tabel');
+    if(!sec){
+      sec=document.createElement('section');
+      sec.className='section card lux-parent-tabel';
+      document.querySelector('.main')?.appendChild(sec);
+    }
+    sec.innerHTML=buildChildTabelHtml(k.id,false);
+  }
+}
+
+/* 4. АДМИН: Табель часов педагогов */
 window.openTeacherHoursModal=(tid,tName)=>{
+  if(getActiveRole()!=='admin')return;
   const st=calcTeacherStats(tid,window._lcFrom,window._lcTo);
   const daysRu=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
   const rows=st.items.map(i=>{
@@ -875,6 +1119,7 @@ window.openTeacherHoursModal=(tid,tName)=>{
 };
 
 function upgradeAdminTeachersHours(){
+  if(getActiveRole()!=='admin')return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Педагоги'||!window._lcCache.ready)return;
   const teachers=window._lcCache.profiles.filter(p=>p.role==='teacher'&&p.active);
@@ -934,28 +1179,11 @@ function upgradeAdminTeachersHours(){
   if(inpT)inpT.onchange=()=>{window._lcPeriod='custom';window._lcTo=inpT.value;upgradeAdminTeachersHours()};
 }
 
-function upgradeParentTabelBlock(){
-  const c=window._lcCache;
-  if(!c.ready||c.me?.role!=='parent')return;
-  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
-  if(!h1.startsWith('Сегодня у')&&h1!=='Неделя')return;
-  if(document.querySelector('.main .lux-parent-tabel'))return;
-  const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
-  const selId=sessionStorage.getItem('PARENT_CHILD')||myKids[0]?.id;
-  if(!selId)return;
-  const sec=document.createElement('section');
-  sec.className='section card lux-parent-tabel';
-  sec.innerHTML=buildChildTabelHtml(selId,false);
-  document.querySelector('.main')?.appendChild(sec);
-}
-
-/* 5. АДМИН / РОДИТЕЛЬ: Шахматка расписания с Календарём дат и статусом "Проведён ДД.ММ" */
+/* 5. АДМИН: Шахматка расписания */
 function upgradeAdminSchedule(){
+  if(getActiveRole()!=='admin')return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Расписание'||!window._lcCache.ready)return;
-  const isAdmin=window._lcCache.me?.role==='admin';
-  const isParent=window._lcCache.me?.role==='parent';
-  if(!isAdmin&&!isParent)return;
 
   let wrap=document.querySelector('.main .lux-matrix-wrap');
   const oldGrid=document.querySelector('.main > .grid.g2');
@@ -980,7 +1208,7 @@ function upgradeAdminSchedule(){
     dayTabs.push([dName,`${dName} (${fmtShortDM(dStr)})`]);
   }
 
-  let html=isAdmin?buildCalendarWidgetHtml(null):'';
+  let html=buildCalendarWidgetHtml(null);
   html+=`<div class="lux-filter-bar"><div class="lux-grade-pills">${dayTabs.map(([k,l])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===k?'on':''}" data-d="${k}">${l}</button>`).join('')}</div></div>`;
 
   for(let i=0;i<5;i++){
@@ -1005,7 +1233,7 @@ function upgradeAdminSchedule(){
       const byCol=slotLessons.filter(l=>l.target!=='Вся школа');
 
       if(sw.length&&!byCol.length){
-        const items=sw.map(l=>`<div class="lux-cell-item lux-school-wide" ${isAdmin?`onclick="scheduleModal('${l.scheduleId}')"`:''}><strong>${l.icon} ${escH(l.subj)} <span class="chip green">Вся школа</span></strong><small style="margin:0">${escH(l.teacherName)}</small>${isAdmin?`<button type="button" class="lux-cell-del" title="Удалить" onclick="archiveSchedule('${l.scheduleId}',event)">×</button>`:''}</div>`).join('');
+        const items=sw.map(l=>`<div class="lux-cell-item lux-school-wide" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon} ${escH(l.subj)} <span class="chip green">Вся школа</span></strong><small style="margin:0">${escH(l.teacherName)}</small><button type="button" class="lux-cell-del" title="Удалить" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`).join('');
         rowsHtml+=`<tr><td class="lux-time-col">${badge}<span class="lux-ltime">${slot}</span></td><td colspan="${cols.length}">${items}</td></tr>`;
       }else{
         const tds=cols.map(c=>{
@@ -1015,7 +1243,7 @@ function upgradeAdminSchedule(){
             const statusPill=l.nonCount
               ?`<span class="chip" style="margin-top:4px;font-size:10px">Без часов</span>`
               :`<button type="button" class="lux-done-btn ${l.done?'is-done':''}" style="margin-top:5px;padding:4px 9px;font-size:10.5px" onclick="toggleLessonDone('${l.scheduleId}','${dStr}','${l.teacherId}',event)">${l.done?`✓ Проведён ${fmtShortDM(dStr)} (1 ч)`:`○ Не отмечен (${fmtShortDM(dStr)})`}</button>`;
-            return `<div class="lux-cell-item" ${isAdmin?`onclick="scheduleModal('${l.scheduleId}')"`:''}><strong>${l.icon}${escH(l.subj)}</strong><small>${escH(l.teacherName)}${l.target==='Вся школа'?' · Вся школа':''}</small>${isAdmin?statusPill:''}${isAdmin?`<button type="button" class="lux-cell-del" title="Удалить" onclick="archiveSchedule('${l.scheduleId}',event)">×</button>`:''}</div>`;
+            return `<div class="lux-cell-item" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon} ${escH(l.subj)}</strong><small>${escH(l.teacherName)}${l.target==='Вся школа'?' · Вся школа':''}</small>${statusPill}<button type="button" class="lux-cell-del" title="Удалить" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`;
           }).join('')}</td>`;
         }).join('');
         rowsHtml+=`<tr><td class="lux-time-col">${badge}<span class="lux-ltime">${slot}</span></td>${tds}</tr>`;
@@ -1036,6 +1264,8 @@ function upgradeAdminSchedule(){
 }
 
 function upgradeTablesAndLists(){
+  const role=getActiveRole();
+  const canEdit=role==='admin'||role==='teacher';
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1==='Классы'){
     const grid=document.querySelector('.main > .grid.g3');
@@ -1084,7 +1314,7 @@ function upgradeTablesAndLists(){
         const card=document.createElement('div');card.className='lux-kid-card';
         card.dataset.grade=grade;card.dataset.cls=clsText;card.dataset.search=(tds[0].textContent+' '+clsText).toLowerCase();
         const initials=(tds[0].querySelector('b')?.textContent||'Р').split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
-        const tabelBtn=kidId?`<button type="button" class="btn primary" onclick="openChildTabelModal('${kidId}')">★ Табель (100 б.)</button><button type="button" class="btn soft" onclick="openAddScoreModal('${kidId}','',false)">+ Балл</button>`:'';
+        const tabelBtn=kidId?`<button type="button" class="btn primary" onclick="openChildTabelModal('${kidId}')">★ Табель</button>${canEdit?`<button type="button" class="btn soft" onclick="openAddScoreModal('${kidId}','',false)">+ Балл / Зачёт</button>`:''}`:'';
         card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${initials}</span><div class="rowmain">${nameHtml}</div><span class="lux-kid-cls">${clsText||'—'}</span></div><div style="font-size:12px">${infoHtml}</div><div class="lux-kid-actions">${tabelBtn}${btnsHtml}</div>`;
         items.push(card);
       });
@@ -1130,7 +1360,7 @@ function upgradeTablesAndLists(){
       const kidId=fbBtn?.getAttribute('onclick').match(/'([^']+)'/)?.[1];
       if(kidId&&!r.querySelector('.lux-tbtn')){
         const tb=document.createElement('button');tb.type='button';tb.className='btn ghost lux-tbtn';
-        tb.textContent='★ Табель (100 б.)';tb.onclick=()=>window.openChildTabelModal(kidId);
+        tb.textContent='★ Табель';tb.onclick=()=>window.openChildTabelModal(kidId);
         fbBtn.before(tb);
       }
     });
@@ -1148,7 +1378,8 @@ function upgradeTablesAndLists(){
   }
 }
 
-function onRender(){
+async function onRender(){
+  await syncCache(false);
   buildTopDropdown();
   if(window._lcTabelMode){renderTabelPageView();return;}
   cleanObservationFeeds();
@@ -1157,16 +1388,13 @@ function onRender(){
   upgradeTeacherToday();
   upgradeTeacherSchedule();
   upgradeAdminTeachersHours();
-  upgradeParentTabelBlock();
+  upgradeParentViews();
 }
 window.addEventListener('DOMContentLoaded',async()=>{
-  await syncCache();
+  await syncCache(true);
   const app=document.getElementById('app');
   if(app){
-    new MutationObserver(async()=>{
-      if(!window._lcCache.ready)await syncCache();
-      onRender();
-    }).observe(app,{childList:true,subtree:false});
+    new MutationObserver(()=>{onRender()}).observe(app,{childList:true,subtree:false});
     onRender();
   }
 });
