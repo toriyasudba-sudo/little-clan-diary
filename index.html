@@ -172,7 +172,7 @@ tr:last-child td{border-bottom:0}
 .lux-cal-cell{min-height:48px;border-radius:12px;border:1px solid #EFE8DC;background:#FAF7F1;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
 .lux-cal-cell.is-sel{border:2px solid var(--green);background:#E9EFE8}
 .lux-cal-cell.is-today .lux-cal-num{background:var(--gold);color:#fff;border-radius:99px;padding:0 6px}
-.lux-cal-num{font-family:var(--font-serif);font-size:14px;font-weight:700}
+.lux-cal-num{font-family:var(--font-serif);font-size:14px;font-weight:600}
 .lux-cal-stat{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-top:3px;white-space:nowrap}
 .lux-cal-stat.all-done{background:var(--green);color:#FAF7F2}
 .lux-cal-stat.part-done{background:var(--yellowSoft);color:#7D5B14}
@@ -289,23 +289,22 @@ function isNonCountedSubj(subjObj,rawName=''){
   if(['circle','breakfast','break','lunch','snack'].includes(code))return true;
   return /^(круг|завтрак|перемена|обед|полдник)$/i.test(name);
 }
-function getTabelSubjectMode(subjObj){
-  if(!subjObj)return null;
+function isEnglishSubj(subjObj){
+  if(!subjObj)return false;
   const code=String(subjObj.code||'').toLowerCase();
   const name=String(subjObj.name||'').trim().toLowerCase();
-  if(['rus','math','reading','literature','world','eng'].includes(code))return 'score100';
-  if(/^(русский язык|математика|чтение|литература|литературное чтение|окружающий мир|английский язык)$/i.test(name))return 'score100';
+  return code==='eng'||code==='native_eng'||/английск|english/i.test(name);
+}
+function getTabelSubjectMode(subjObj){
+  if(!subjObj)return null;
+  if(isEnglishSubj(subjObj))return 'eng_free';
+  const code=String(subjObj.code||'').toLowerCase();
+  const name=String(subjObj.name||'').trim().toLowerCase();
+  if(['rus','math','reading','literature','world'].includes(code))return 'score100';
+  if(/^(русский язык|математика|чтение|литература|литературное чтение|окружающий мир)$/i.test(name))return 'score100';
   if(['ict','technology','music','art','project','calligraphy'].includes(code))return 'passfail';
   if(/^(икт|информатика|технология|музыка|изо|изобразительное искусство|проектная деятельность|каллиграфия)$/i.test(name))return 'passfail';
   return null;
-}
-/* Максимальный балл: для Английского языка — 60 баллов, для остальных основных — 100 баллов */
-function getSubjectMaxScore(subjObj){
-  if(!subjObj)return 100;
-  const code=String(subjObj.code||'').toLowerCase();
-  const name=String(subjObj.name||'').trim().toLowerCase();
-  if(code==='eng'||code==='native_eng'||/английск|english/i.test(name))return 60;
-  return 100;
 }
 function displayTabelSubjName(s){
   if(!s)return 'Предмет';
@@ -652,7 +651,6 @@ window.deleteObservationItem=async(obsId)=>{
   onRender();
 };
 
-/* Добавление кнопки «✎ Изменить» в карточки наблюдений (у учителя и админа) */
 function upgradeObservationEditButtons(){
   const role=getActiveRole();
   if(role!=='teacher'&&role!=='admin')return;
@@ -790,11 +788,32 @@ function renderMenuPageView(){
   </form>`;
 }
 
-/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ (4 предмета 100 баллов + Английский 60 баллов + 6 предметов Зачёт/Незачёт) --- */
+/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ: 4 предмета (100 б.) + Английский (вручную любой балл и из скольки!) + 6 предметов (Зачёт/Незачёт) --- */
 function parseTabelObs(o){
   const t=o.tags||[];
   if(t[0]==='__TABEL_DELETED__'||t[0]==='__MENU__')return null;
-  if(t[0]==='__TABEL__')return {id:o.id,kind:'score100',childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:Number(t[2]||0),topic:o.note||''};
+  if(t[0]==='__TABEL_FREE__'){
+    const raw=String(t[2]||'').trim();
+    const m=raw.match(/(\d+(?:[.,]\d+)?)\s*(?:\/|из|-)\s*(\d+(?:[.,]\d+)?)/i);
+    let score=null,max=null,pct=85,badge=raw;
+    if(m){
+      score=Number(m[1].replace(',','.'));
+      max=Number(m[2].replace(',','.'));
+      if(max>0)pct=Math.round((score/max)*100);
+      badge=`${m[1]}/${m[2]}`;
+    }
+    return {id:o.id,kind:'score100',isFree:true,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score,max,pct,badge,topic:o.note||''};
+  }
+  if(t[0]==='__TABEL__'){
+    const raw=String(t[2]||'0').trim();
+    const m=raw.match(/(\d+(?:[.,]\d+)?)\s*(?:\/|из)\s*(\d+(?:[.,]\d+)?)/i);
+    if(m){
+      const sc=Number(m[1].replace(',','.')),mx=Number(m[2].replace(',','.'));
+      return {id:o.id,kind:'score100',isFree:true,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:mx,pct:mx>0?Math.round((sc/mx)*100):85,badge:`${m[1]}/${m[2]}`,topic:o.note||''};
+    }
+    const sc=Number(raw)||0;
+    return {id:o.id,kind:'score100',isFree:false,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:100,pct:sc,badge:`${sc}/100`,topic:o.note||''};
+  }
   if(t[0]==='__TABEL_PF__'){
     const st=t[2]==='fail'?'fail':'pass';
     return {id:o.id,kind:'passfail',childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Зачётная работа',status:st,label:st==='pass'?'Зачёт':'Незачёт',topic:o.note||''};
@@ -806,11 +825,11 @@ function getChildScores(childId){
 }
 function cleanObservationFeeds(){
   document.querySelectorAll('.row, .feeditem').forEach(el=>{
-    if(/__TABEL__|__TABEL_PF__|__MENU__|__TABEL_DELETED__/.test(el.textContent))el.remove();
+    if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__TABEL_DELETED__/.test(el.textContent))el.remove();
   });
   document.querySelectorAll('.chips .chip').forEach(ch=>{
     const txt=ch.textContent.trim();
-    if(/__TABEL|__MENU|^(100|\d{1,2})\s*·\s*\d+$|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
+    if(/__TABEL|__MENU|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
       ch.remove();
     }
   });
@@ -820,21 +839,30 @@ window.syncScoreModalFields=()=>{
   const sel=document.getElementById('luxTabelSubjSelect');if(!sel)return;
   const opt=sel.options[sel.selectedIndex];
   const mode=opt?.dataset.mode||'score100';
-  const maxScore=Number(opt?.dataset.max||100);
-  const b100=document.getElementById('luxMode100Fields'),bPF=document.getElementById('luxModePFFields'),inp=document.getElementById('luxScoreInput'),lbl=document.getElementById('luxScoreLabel');
+  const b100=document.getElementById('luxMode100Fields');
+  const bEng=document.getElementById('luxModeEngFreeFields');
+  const bPF=document.getElementById('luxModePFFields');
+  const inp100=document.getElementById('luxScoreInput');
+  const inpEng=document.getElementById('luxEngFreeInput');
+
   if(mode==='passfail'){
     if(b100)b100.style.display='none';
+    if(bEng)bEng.style.display='none';
     if(bPF)bPF.style.display='grid';
-    if(inp)inp.required=false;
+    if(inp100)inp100.required=false;
+    if(inpEng)inpEng.required=false;
+  }else if(mode==='eng_free'){
+    if(b100)b100.style.display='none';
+    if(bEng)bEng.style.display='grid';
+    if(bPF)bPF.style.display='none';
+    if(inp100)inp100.required=false;
+    if(inpEng)inpEng.required=true;
   }else{
     if(b100)b100.style.display='grid';
+    if(bEng)bEng.style.display='none';
     if(bPF)bPF.style.display='none';
-    if(inp){
-      inp.required=true;
-      inp.max=String(maxScore);
-      inp.placeholder=maxScore===60?'Макс: 60 (напр. 54)':'Макс: 100 (напр. 95)';
-    }
-    if(lbl)lbl.textContent=`Балл (от 0 до ${maxScore})`;
+    if(inp100)inp100.required=true;
+    if(inpEng)inpEng.required=false;
   }
 };
 
@@ -842,7 +870,7 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
   if(getActiveRole()==='parent')return;
   const c=window._lcCache;
   const kids=c.children.filter(k=>k.active).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-  const scoreSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='score100');
+  const scoreSubs=c.subjects.filter(s=>s.active&&(getTabelSubjectMode(s)==='score100'||getTabelSubjectMode(s)==='eng_free'));
   const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail');
   const ex=document.getElementById('scoreModal');if(ex)ex.remove();
   const d=document.createElement('div');d.id='scoreModal';d.className='modalbg';d.style.zIndex='70';
@@ -853,8 +881,8 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
       <div class="field">
         <label>Предмет</label>
         <select name="subjectId" id="luxTabelSubjSelect" onchange="syncScoreModalFields()" required>
-          <optgroup label="Баллы за проверочные и контрольные (100 б. / Англ. яз. — 60 б.)">
-            ${scoreSubs.map(s=>{const mx=getSubjectMaxScore(s);return `<option value="${s.id}" data-mode="score100" data-max="${mx}" ${s.id===subjectId?'selected':''}>${escH(displayTabelSubjName(s))} (из ${mx} баллов)</option>`}).join('')}
+          <optgroup label="Основные предметы (Баллы за проверочные и контрольные)">
+            ${scoreSubs.map(s=>{const md=getTabelSubjectMode(s);return `<option value="${s.id}" data-mode="${md}" ${s.id===subjectId?'selected':''}>${escH(displayTabelSubjName(s))} ${md==='eng_free'?'(вручную: балл и из скольки)':'(из 100 баллов)'}</option>`}).join('')}
           </optgroup>
           <optgroup label="Система «Зачёт / Незачёт»">
             ${pfSubs.map(s=>`<option value="${s.id}" data-mode="passfail" ${s.id===subjectId?'selected':''}>${escH(displayTabelSubjName(s))} (Зачёт / Незачёт)</option>`).join('')}
@@ -863,7 +891,15 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
       </div>
       <div class="formgrid" id="luxMode100Fields">
         <div class="field"><label>Вид работы</label><select name="workType100"><option value="Проверочная работа">Проверочная работа</option><option value="Контрольная работа">Контрольная работа</option></select></div>
-        <div class="field"><label id="luxScoreLabel">Балл (0–100)</label><input type="number" id="luxScoreInput" name="score" min="0" max="100" placeholder="Например: 95"></div>
+        <div class="field"><label>Балл (от 0 до 100)</label><input type="number" id="luxScoreInput" name="score" min="0" max="100" placeholder="Например: 95"></div>
+      </div>
+      <div class="formgrid" id="luxModeEngFreeFields" style="display:none">
+        <div class="field"><label>Вид работы</label><select name="workTypeEng"><option value="Проверочная работа">Проверочная работа</option><option value="Контрольная работа">Контрольная работа</option><option value="Тест / Словарный диктант">Тест / Словарный диктант</option></select></div>
+        <div class="field">
+          <label>Баллы и из скольки (вручную)</label>
+          <input type="text" id="luxEngFreeInput" name="engFreeScore" placeholder="Например: 45/50 или 54/60">
+          <small style="color:var(--muted);font-size:11px">Напишите сами в любом формате: 45/50, 58/60, 18 из 20 и т.д.</small>
+        </div>
       </div>
       <div class="formgrid" id="luxModePFFields" style="display:none">
         <div class="field"><label>Результат</label><select name="pfStatus"><option value="pass">✓ Зачёт</option><option value="fail">✕ Незачёт</option></select></div>
@@ -871,7 +907,7 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
       </div>
       <div class="formgrid">
         <div class="field"><label>Дата</label><input type="date" name="date" value="${isoDate()}" required></div>
-        <div class="field"><label>Тема работы</label><input type="text" name="topic" required placeholder="Например: Диктант / Тест"></div>
+        <div class="field"><label>Тема работы</label><input type="text" name="topic" required placeholder="Например: Диктант / Unit 3 Test"></div>
       </div>
       <div class="actions"><button type="button" class="btn ghost" onclick="document.getElementById('scoreModal').remove()">Отмена</button><button class="btn primary">Сохранить</button></div>
     </form>
@@ -889,8 +925,16 @@ window.saveScoreEntry=async(e,reopenChildModal)=>{
   const c=window._lcCache;
   const subjObj=c.subjects.find(s=>s.id===subjectId);
   const mode=getTabelSubjectMode(subjObj);
-  const maxS=getSubjectMaxScore(subjObj);
-  const tags=mode==='passfail'?['__TABEL_PF__',f.get('workTypePF')||'Зачётная работа',f.get('pfStatus')==='fail'?'fail':'pass']:['__TABEL__',f.get('workType100')||'Проверочная работа',String(Math.min(maxS,Math.max(0,Number(f.get('score')||0))))];
+  let tags=[];
+  if(mode==='passfail'){
+    tags=['__TABEL_PF__',f.get('workTypePF')||'Зачётная работа',f.get('pfStatus')==='fail'?'fail':'pass'];
+  }else if(mode==='eng_free'){
+    const raw=(f.get('engFreeScore')||'').trim();
+    if(!raw)return alert('Напишите баллы (например: 45/50 или 54/60)');
+    tags=['__TABEL_FREE__',f.get('workTypeEng')||'Проверочная работа',raw];
+  }else{
+    tags=['__TABEL__',f.get('workType100')||'Проверочная работа',String(Math.min(100,Math.max(0,Number(f.get('score')||0))))];
+  }
   const client=await getSb();
   const {error}=await client.from('observations').insert({school_id:c.me.school_id,child_id:childId,subject_id:subjectId,teacher_id:c.me.id,observed_on:date,note:topic,tags});
   if(error)return alert('Ошибка: '+error.message);
@@ -917,7 +961,7 @@ function buildChildTabelHtml(childId,allowEditParam=false){
   const k=c.children.find(x=>x.id===childId);if(!k)return '<div class="empty">Ребёнок не найден</div>';
   const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
   const order100=['rus','math','reading','literature','world','eng'];
-  const scoreSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='score100').sort((a,b)=>order100.indexOf(a.code)-order100.indexOf(b.code));
+  const scoreSubs=c.subjects.filter(s=>s.active&&(getTabelSubjectMode(s)==='score100'||getTabelSubjectMode(s)==='eng_free')).sort((a,b)=>order100.indexOf(a.code)-order100.indexOf(b.code));
   const orderPF=['ict','technology','music','art','project','calligraphy'];
   const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail').sort((a,b)=>orderPF.indexOf(a.code)-orderPF.indexOf(b.code));
 
@@ -925,21 +969,38 @@ function buildChildTabelHtml(childId,allowEditParam=false){
   const entries100=allEntries.filter(x=>x.kind==='score100');
   const entriesPF=allEntries.filter(x=>x.kind==='passfail');
 
-  const entriesMain100=entries100.filter(x=>getSubjectMaxScore(c.subjects.find(s=>s.id===x.subjectId))===100);
-  const entriesEng60=entries100.filter(x=>getSubjectMaxScore(c.subjects.find(s=>s.id===x.subjectId))===60);
+  const entriesMain100=entries100.filter(x=>!isEnglishSubj(c.subjects.find(s=>s.id===x.subjectId))&&x.score!==null);
   const avg100=entriesMain100.length?Math.round(entriesMain100.reduce((a,b)=>a+b.score,0)/entriesMain100.length):null;
-  const avg60=entriesEng60.length?Math.round(entriesEng60.reduce((a,b)=>a+b.score,0)/entriesEng60.length):null;
 
   const rows100=scoreSubs.map(s=>{
-    const maxS=getSubjectMaxScore(s);
+    const isEng=isEnglishSubj(s);
     const sc=entries100.filter(x=>x.subjectId===s.id);
-    const avg=sc.length?Math.round(sc.reduce((a,b)=>a+b.score,0)/sc.length):null;
+    let avgCell='—';
+    if(sc.length){
+      if(isEng){
+        const withMax=sc.filter(x=>x.score!==null&&x.max);
+        const sameMax=withMax.length===sc.length&&withMax.every(x=>x.max===withMax[0].max);
+        if(sameMax){
+          const av=Math.round(withMax.reduce((a,b)=>a+b.score,0)/withMax.length);
+          avgCell=`<span class="lux-avg-badge">${av}/${withMax[0].max}</span>`;
+        }else if(sc.length===1){
+          avgCell=`<span class="lux-avg-badge">${escH(sc[0].badge)}</span>`;
+        }else{
+          const avPct=Math.round(sc.reduce((a,b)=>a+(b.pct||85),0)/sc.length);
+          avgCell=`<span class="lux-avg-badge">${escH(sc[sc.length-1].badge)} <small style="font-size:11px;opacity:.85">(${avPct}%)</small></span>`;
+        }
+      }else{
+        const av=Math.round(sc.reduce((a,b)=>a+(b.score||0),0)/sc.length);
+        avgCell=`<span class="lux-avg-badge">${av}/100</span>`;
+      }
+    }
     const pills=sc.map(x=>{
-      const pct=(x.score/maxS)*100;
+      const pct=x.pct!==undefined?x.pct:85;
       const clsP=pct>=80?'':pct>=60?'mid':'low';
-      return `<span class="lux-score-pill ${clsP}"><b>${x.score}/${maxS}</b> <span>${x.type==='Контрольная работа'?'Контр.':'Проверочн.'}${x.topic?' · '+escH(x.topic):''} <small>(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:0;color:var(--red);cursor:pointer;font-weight:700" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
+      const shortT=x.type==='Контрольная работа'?'Контр.':x.type==='Проверочная работа'?'Проверочн.':x.type;
+      return `<span class="lux-score-pill ${clsP}"><b>${escH(x.badge)}</b> <span>${escH(shortT)}${x.topic?' · '+escH(x.topic):''} <small>(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:0;color:var(--red);cursor:pointer;font-weight:700" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
     }).join('');
-    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b> <small style="color:var(--muted)">(из ${maxS} б.)</small></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Работ пока не было</span>'}</td><td style="text-align:center">${avg!==null?`<span class="lux-avg-badge">${avg}/${maxS}</span>`:'—'}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}</tr>`;
+    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b> <small style="color:var(--muted)">${isEng?'(своя шкала группы)':'(из 100 б.)'}</small></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Работ пока не было</span>'}</td><td style="text-align:center">${avgCell}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}</tr>`;
   }).join('');
 
   const rowsPF=pfSubs.map(s=>{
@@ -949,10 +1010,10 @@ function buildChildTabelHtml(childId,allowEditParam=false){
     return `<tr><td><b>${escH(displayTabelSubjName(s))}</b></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Зачётов пока нет</span>'}</td><td style="text-align:center">${last?(last.status==='pass'?'<span class="chip green">✓ ЗАЧЁТ</span>':'<span class="chip red">✕ НЕЗАЧЁТ</span>'):'—'}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Зачёт</button></td>`:''}</tr>`;
   }).join('');
 
-  return `<div class="lux-hours-banner"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Академический Табель</div><div style="font-size:18px;font-weight:700;margin-top:2px">${escH(k.name)} · ${escH(clsName)} класс</div><div style="font-size:11.5px;opacity:.85;margin-top:2px">Основные предметы — из 100 б. · Английский язык — из 60 б. · Зачётные дисциплины</div></div><div style="text-align:right"><b>${avg100!==null?avg100+' / 100':'—'}</b><div style="font-size:11.5px;opacity:.9">${avg60!==null?`Англ. яз.: ${avg60}/60 · `:''}Зачётов: ${entriesPF.filter(x=>x.status==='pass').length}</div></div></div>
+  return `<div class="lux-hours-banner"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Академический Табель</div><div style="font-size:18px;font-weight:700;margin-top:2px">${escH(k.name)} · ${escH(clsName)} класс</div><div style="font-size:11.5px;opacity:.85;margin-top:2px">Основные предметы — из 100 б. · Английский язык — по шкале группы · Зачётные дисциплины</div></div><div style="text-align:right"><b>${avg100!==null?avg100+' / 100':'—'}</b><div style="font-size:11.5px;opacity:.9">Зачётов: ${entriesPF.filter(x=>x.status==='pass').length}</div></div></div>
   <div class="actions" style="margin:0 0 10px;justify-content:space-between"><button type="button" class="btn ghost" onclick="printChildTabelPdf('${childId}')">⇩ Скачать PDF</button>${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл / зачёт</button>`:''}</div>
-  <div class="lux-subsec-title">I. Основные предметы (Русский, Математика, Литература, Окр. мир — из 100 б. · Английский — из 60 б.)</div>
-  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Средний</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows100}</tbody></table></div>
+  <div class="lux-subsec-title">I. Основные предметы (Русский, Математика, Литература, Окр. мир — из 100 б. · Английский — по шкале группы)</div>
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Итог / Средний</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows100}</tbody></table></div>
   <div class="lux-subsec-title">II. Зачётные дисциплины (Зачёт / Незачёт)</div>
   <div class="table"><table><thead><tr><th>Предмет</th><th>Зачёты и проекты</th><th style="text-align:center">Итог</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rowsPF}</tbody></table></div>`;
 }
@@ -980,7 +1041,7 @@ async function renderTabelPageView(){
   if(role==='parent'){
     const myKids=c.parentLinks.filter(x=>x.parent_id===c.me?.id).map(x=>c.children.find(k=>k.id===x.child_id&&k.active)).filter(Boolean);
     const k=getSelectedParentChild()||myKids[0];
-    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Основные предметы (100 б.), Английский язык (60 б.) и система «Зачёт / Незачёт»</p></div></div>
+    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Основные предметы (100 б.), Английский язык (по шкале группы) и система «Зачёт / Незачёт»</p></div></div>
     ${myKids.length>1?`<div class="card" style="margin-bottom:14px"><div class="chips">${myKids.map(x=>`<button class="btn ${x.id===k?.id?'primary':'soft'}" onclick="sessionStorage.setItem('PARENT_CHILD','${x.id}');renderTabelPageView()">${escH(x.first_name)}</button>`).join('')}</div></div>`:''}
     <div class="card">${k?buildChildTabelHtml(k.id,false):'<div class="empty">Ребёнок не привязан</div>'}</div>`;
     return;
@@ -989,7 +1050,7 @@ async function renderTabelPageView(){
     const ca=c.classes.find(x=>x.id===a.class_id)?.name||'',cb=c.classes.find(x=>x.id===b.class_id)?.name||'';
     return extractGrade(ca).localeCompare(extractGrade(cb))||ca.localeCompare(cb,'ru')||a.name.localeCompare(b.name,'ru');
   });
-  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Русский, Математика, Литература, Окр. мир (из 100 б.) · Английский (из 60 б.) · ИКТ, Технология, Музыка, ИЗО, Проекты, Каллиграфия (Зачёт)</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл / зачёт</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
+  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Русский, Математика, Литература, Окр. мир (из 100 б.) · Английский (свободный ввод: из 50, из 60 и т.д.) · Зачётные дисциплины</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл / зачёт</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
   const grid=main.querySelector('#luxTabelKidsGrid');
   const renderList=()=>{
     grid.innerHTML='';let lastG=null;const q=window._lcSearch;
@@ -1001,14 +1062,14 @@ async function renderTabelPageView(){
         div.textContent=g==='other'?'Другие классы':`${g} параллель (${g} класс)`;grid.appendChild(div);
       }
       const allSc=getChildScores(k.id);
-      const sc100=allSc.filter(x=>x.kind==='score100'&&getSubjectMaxScore(c.subjects.find(s=>s.id===x.subjectId))===100);
-      const sc60=allSc.filter(x=>x.kind==='score100'&&getSubjectMaxScore(c.subjects.find(s=>s.id===x.subjectId))===60);
+      const sc100=allSc.filter(x=>x.kind==='score100'&&!isEnglishSubj(c.subjects.find(s=>s.id===x.subjectId))&&x.score!==null);
+      const scEng=allSc.filter(x=>x.kind==='score100'&&isEnglishSubj(c.subjects.find(s=>s.id===x.subjectId)));
       const scPF=allSc.filter(x=>x.kind==='passfail'&&x.status==='pass');
       const avg100=sc100.length?Math.round(sc100.reduce((a,b)=>a+b.score,0)/sc100.length):null;
-      const avg60=sc60.length?Math.round(sc60.reduce((a,b)=>a+b.score,0)/sc60.length):null;
+      const lastEng=scEng.length?scEng[scEng.length-1].badge:null;
       const card=document.createElement('div');card.className='lux-kid-card';
       const ini=k.name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
-      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>${avg100!==null?`Ср. (100 б.): <b>${avg100}/100</b> · `:''}${avg60!==null?`Англ.: <b>${avg60}/60</b> · `:''}Зачётов: <b>${scPF.length}</b></small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
+      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>${avg100!==null?`Ср. (100 б.): <b>${avg100}/100</b> · `:''}${lastEng?`Англ.: <b>${escH(lastEng)}</b> · `:''}Зачётов: <b>${scPF.length}</b></small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
       <div class="lux-kid-actions"><button type="button" class="btn primary" onclick="openChildTabelModal('${k.id}')">★ Открыть табель</button><button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Балл / Зачёт</button></div>`;
       grid.appendChild(card);
     });
