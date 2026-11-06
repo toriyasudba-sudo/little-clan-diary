@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* TWA Верхнее меню, фильтры, Уведомления сброса пароля и Модуль Наблюдений */
+/* Верхнее меню, фильтры, Четверти и Меню Питания */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -198,6 +198,9 @@ tr:last-child td{border-bottom:0}
 .lux-meal-box small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--orange);margin-bottom:4px}
 .lux-meal-box strong{display:block;font-family:var(--font-serif);font-size:17px;color:var(--ink);line-height:1.25}
 
+.lux-hw-box{margin-top:4px;padding:5px 9px;border-radius:9px;background:#F9F0DA;border:1px solid rgba(184,137,40,.3);color:#5E430C;font-size:12px;line-height:1.4}
+.lux-topic-line{font-size:12.5px;color:var(--ink);line-height:1.4}
+
 .lux-sched-day{margin-bottom:18px;padding:16px;border-radius:20px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
 .lux-sched-table{width:100%;border-collapse:separate;border-spacing:0;min-width:560px}
 .lux-sched-table th{background:#F6F0E4;color:var(--green);font-family:var(--font-serif);font-size:15px;font-weight:700;text-transform:none;letter-spacing:0;padding:9px 10px;border-bottom:1.5px solid var(--gold);border-right:1px solid #EFE8DC;text-align:center}
@@ -247,9 +250,17 @@ function isoDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1)
 function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
 function getMonday(d=new Date()){let x=new Date(d),k=x.getDay()||7;x.setHours(12,0,0,0);x.setDate(x.getDate()-k+1);return x}
 function fmtDateRu(dStr,opts={day:'numeric',month:'long',year:'numeric'}){return new Intl.DateTimeFormat('ru-RU',opts).format(new Date(dStr+'T12:00:00'))}
-function fmtShortDM(dStr){const [y,m,d]=String(dStr).split('-');return `${d}.${m}`}
+function fmtShortDM(dStr){const [y,m,d]=String(dStr||'').split('-');return d&&m?`${d}.${m}`:dStr}
 function escH(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
 function normNick(raw=''){return String(raw||'').trim().replace(/^@+/,'').toLowerCase().replace(/[^a-z0-9._-]/g,'')}
+
+/* ЧЕТВЕРТИ УЧЕБНОГО ГОДА (по умолчанию активна 2 четверть, даты можно менять в настройках) */
+const DEFAULT_QUARTERS={
+  q1:{id:'q1',name:'1 четверть',label:'1 сент — 23 окт',start:'2026-09-01',end:'2026-10-23'},
+  q2:{id:'q2',name:'2 четверть',label:'26 окт — 30 окт',start:'2026-10-26',end:'2026-10-30'},
+  q3:{id:'q3',name:'3 четверть',label:'2 нояб — 30 дек',start:'2026-11-02',end:'2026-12-30'},
+  q4:{id:'q4',name:'4 четверть',label:'11 янв — 29 мая',start:'2027-01-11',end:'2027-05-29'}
+};
 
 const DEFAULT_MENU={
   1:{
@@ -280,11 +291,25 @@ window._lcSelectedDate=isoDate();
 window._lcCalMonth=isoDate().slice(0,7);
 window._lcShowMonthGrid=false;
 window._lcCustomPage=null; // 'tabel' | 'menu' | 'admin_obs' | 'password' | null
+window._lcActiveQuarter='q2'; // Сейчас идёт 2 четверть
 window._lcMenuWeek=1;
 window._lcObsFilter={classId:'all',subjectId:'all',period:'all',from:isoDate(getMonday()),to:isoDate(addDays(getMonday(),4)),childId:'all',search:''};
 window._lcClasses=[];
 window._lcLastUid=null;
 window._lcCache={ready:false,me:null,authEmail:'',authMeta:{},schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],childGroups:[],children:[],parentLinks:[],observations:[]};
+
+/* Перехват штатной навигации window.go, чтобы меню НИКОГДА не зависало на кастомных вкладках */
+function hookNavigationGo(){
+  if(typeof window.go==='function'&&!window.go._luxHooked){
+    const origGo=window.go;
+    const wrappedGo=function(r){
+      window._lcCustomPage=null;
+      return origGo(r);
+    };
+    wrappedGo._luxHooked=true;
+    window.go=wrappedGo;
+  }
+}
 
 function getActiveRole(){
   const b=document.querySelector('.mobiletop .badge, .top .badge')?.textContent.trim()||'';
@@ -382,7 +407,299 @@ async function syncCache(force=false){
 }
 
 /* =========================================================================
-   МОДУЛЬ 1: АВТОРИЗАЦИЯ РОДИТЕЛЕЙ ПО НИКУ И ВКЛАДКА «🔐 СМЕНА ПАРОЛЯ»
+   ОБЩЕШКОЛЬНОЕ ХРАНИЛИЩЕ КОНФИГУРАЦИИ (ЧТОБЫ РОДИТЕЛИ ВИДЕЛИ МЕНЮ И ЧЕТВЕРТИ)
+   Таблица subjects видна ВСЕМ ролям (админ, учитель, родитель) без блокировок RLS
+   ========================================================================= */
+function getSchoolConfig(codeKey,defaultObj){
+  let res=JSON.parse(JSON.stringify(defaultObj));
+  try{
+    const local=localStorage.getItem('lc_cfg_'+codeKey);
+    if(local)res={...res,...JSON.parse(local)};
+  }catch(e){}
+  const row=window._lcCache.subjects.find(s=>s.code===codeKey);
+  if(row&&row.name){
+    try{res={...res,...JSON.parse(row.name)};}catch(e){}
+  }
+  return res;
+}
+async function saveSchoolConfig(codeKey,obj){
+  const jsonStr=JSON.stringify(obj);
+  try{localStorage.setItem('lc_cfg_'+codeKey,jsonStr);}catch(e){}
+  const client=await getSb();
+  const schoolId=window._lcCache.me?.school_id;
+  if(!schoolId)return;
+  await client.from('subjects').upsert({
+    school_id:schoolId,code:codeKey,name:jsonStr,icon:'⚙️',category:'routine',active:false
+  },{onConflict:'school_id,code'});
+  await syncCache(true);
+}
+
+/* Четверти и определение четверти по дате или тегу */
+function getQuartersConfig(){
+  return getSchoolConfig('__lc_quarters__',DEFAULT_QUARTERS);
+}
+function detectQuarterByDate(dStr){
+  const qs=getQuartersConfig();
+  for(const k of ['q1','q2','q3','q4']){
+    const q=qs[k];
+    if(q&&dStr>=q.start&&dStr<=q.end)return k;
+  }
+  if(dStr>='2026-10-24'&&dStr<='2026-11-01')return 'q2';
+  return 'q2';
+}
+
+/* =========================================================================
+   МОДУЛЬ УПРАВЛЕНИЯ ЛОГИНАМИ ПЕДАГОГОВ ПРЯМО С ДАШБОРДА АДМИНА
+   ========================================================================= */
+function getTeacherLoginMap(){
+  return getSchoolConfig('__lc_tlogins__',{});
+}
+function parseTeacherDisplay(tProf){
+  const raw=String(tProf?.full_name||'').trim();
+  const m=raw.match(/^(.*?)\s*\(@([a-z0-9._-]+)\)$/i);
+  const map=getTeacherLoginMap();
+  const saved=map[tProf?.id];
+  const cleanName=m?m[1].trim():raw;
+  const login=saved?.login||(m?normNick(m[2]):'');
+  return {cleanName,login,authEmail:saved?.authEmail||(login?login+'@littleclan.local':'')};
+}
+
+window.openTeacherLoginModal=(tid)=>{
+  if(getActiveRole()!=='admin')return;
+  const c=window._lcCache;
+  const t=c.profiles.find(p=>p.id===tid);
+  if(!t)return;
+  const {cleanName,login}=parseTeacherDisplay(t);
+  const ex=document.getElementById('tLoginModal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='tLoginModal';d.className='modalbg';d.style.zIndex='85';
+  d.innerHTML=`<div class="modal" style="width:min(480px,100%)" onclick="event.stopPropagation()">
+    <div class="mh"><h2>🔑 Логин и доступ педагога</h2><button class="x" onclick="document.getElementById('tLoginModal').remove()">×</button></div>
+    <form onsubmit="saveTeacherLoginFromDash(event,'${t.id}')">
+      <div class="field">
+        <label>Имя и фамилия педагога</label>
+        <input name="name" required value="${escH(cleanName)}" placeholder="Например: Мария Иванова">
+      </div>
+      <div class="field">
+        <label>Логин для входа (латиницей)</label>
+        <input name="login" required value="${escH(login)}" placeholder="Например: maria илиivanova">
+        <small style="color:var(--muted);font-size:11px">По этому логину преподаватель входит в дневник</small>
+      </div>
+      <div class="field">
+        <label>Новый пароль (необязательно — оставьте пустым, если менять не нужно)</label>
+        <input type="password" name="password" minlength="6" placeholder="Минимум 6 символов (если нужен новый пароль)">
+      </div>
+      <div class="actions">
+        <button type="button" class="btn ghost" onclick="document.getElementById('tLoginModal').remove()">Отмена</button>
+        <button type="submit" class="btn primary">✓ Сохранить логин</button>
+      </div>
+    </form>
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.saveTeacherLoginFromDash=async(e,tid)=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const cleanName=String(f.get('name')||'').trim();
+  const newLogin=normNick(f.get('login'));
+  const newPass=String(f.get('password')||'').trim();
+  if(!cleanName)return alert('Укажите имя педагога');
+  if(newLogin.length<3)return alert('Логин должен быть минимум 3 символа латиницей');
+
+  const mainSb=await getSb();
+  const isoSb=await getIsolatedAuthSb();
+  const map=getTeacherLoginMap();
+  const prev=map[tid]||{};
+  const email=newLogin+'@littleclan.local';
+
+  /* Если задан пароль или создаётся новый вход — регистрируем/обновляем в Auth */
+  if(newPass.length>=6){
+    const {data:adminSess}=await mainSb.auth.getSession();
+    const su=await isoSb.auth.signUp({email,password:newPass});
+    if(su.error&&/already/i.test(su.error.message)){
+      const si=await isoSb.auth.signInWithPassword({email,password:newPass});
+      if(si.data?.user)await isoSb.auth.updateUser({password:newPass});
+    }
+    await isoSb.auth.signOut();
+    if(adminSess?.session){
+      await mainSb.auth.setSession({access_token:adminSess.session.access_token,refresh_token:adminSess.session.refresh_token});
+    }
+  }
+
+  map[tid]={
+    login:newLogin,
+    authEmail:prev.authEmail||email,
+    customPass:newPass||prev.customPass||''
+  };
+  await saveSchoolConfig('__lc_tlogins__',map);
+
+  /* Сохраняем чистое имя + (@логин) в профиль педагога */
+  const fullNameWithLogin=`${cleanName} (@${newLogin})`;
+  const {error}=await mainSb.from('profiles').update({full_name:fullNameWithLogin}).eq('id',tid);
+  if(error)return alert('Ошибка обновления профиля: '+error.message);
+
+  document.getElementById('tLoginModal')?.remove();
+  await syncCache(true);
+  if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
+  onRender();
+  alert(`Логин педагога обновлён: @${newLogin}`);
+};
+
+/* Блок быстрой смены логинов педагогов прямо на Дашборде админа */
+function upgradeAdminDashboardTeachers(){
+  if(getActiveRole()!=='admin'||!window._lcCache.ready)return;
+  const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
+  if(h1!=='Дашборд'&&h1!=='Педагоги')return;
+
+  const c=window._lcCache;
+  const teachers=c.profiles.filter(p=>p.role==='teacher'&&p.active);
+
+  if(h1==='Дашборд'){
+    let box=document.querySelector('.main .lux-dash-teachers');
+    if(!box){
+      box=document.createElement('section');
+      box.className='section card lux-dash-teachers';
+      document.querySelector('.main .grid.g4')?.after(box);
+    }
+    const rows=teachers.map(t=>{
+      const {cleanName,login}=parseTeacherDisplay(t);
+      const lessonsCnt=c.schedule.filter(s=>s.active&&s.teacher_id===t.id).length;
+      return `<div class="row">
+        <span class="avatar">${cleanName.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()}</span>
+        <div class="rowmain">
+          <strong>${escH(cleanName)}</strong>
+          <small>Логин для входа: <b style="color:var(--green)">${login?'@'+escH(login):'не указан (нажмите Изменить)'}</b> · ${lessonsCnt} ур./нед.</small>
+        </div>
+        <button type="button" class="btn soft" onclick="openTeacherLoginModal('${t.id}')">🔑 Изменить логин</button>
+      </div>`;
+    }).join('')||'<div class="empty">Педагоги пока не созданы</div>';
+
+    box.innerHTML=`<div class="sh">
+      <div><h2>🔑 Преподаватели: имена и логины для входа</h2><p>Нажмите «Изменить логин», чтобы подписать или поменять логин любого педагога</p></div>
+      <button type="button" class="btn primary" onclick="teacherModal()">+ Новый педагог</button>
+    </div>
+    <div class="grid g2">${rows}</div>`;
+  }
+
+  if(h1==='Педагоги'){
+    document.querySelectorAll('.main .grid.g3 > .card').forEach(card=>{
+      if(card.querySelector('.lux-tlogin-btn'))return;
+      const editBtn=card.querySelector('button[onclick^="teacherModal"]');
+      const tid=editBtn?.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+      const t=c.profiles.find(p=>p.id===tid);
+      if(!t)return;
+      const {login}=parseTeacherDisplay(t);
+      const chips=card.querySelector('.chips');
+      if(chips){
+        const ch=document.createElement('span');
+        ch.className='chip '+(login?'green':'yellow');
+        ch.innerHTML=`🔑 Логин: <b>${login?'@'+escH(login):'не задан'}</b>`;
+        chips.prepend(ch);
+      }
+      if(editBtn){
+        const lb=document.createElement('button');
+        lb.type='button';lb.className='btn primary lux-tlogin-btn';
+        lb.textContent='🔑 Логин';
+        lb.onclick=()=>window.openTeacherLoginModal(tid);
+        editBtn.before(lb);
+      }
+    });
+  }
+}
+
+/* =========================================================================
+   ТЕМА УРОКА И ДОМАШНЕЕ ЗАДАНИЕ («ЧТО ЗАДАНО») — ЧТОБЫ ВСЕГДА ПОЯВЛЯЛОСЬ У РОДИТЕЛЯ
+   ========================================================================= */
+window.lessonTopicModal=(sid,date=isoDate())=>{
+  const c=window._lcCache;
+  const l=c.schedule.find(x=>x.id===sid);
+  if(!l)return;
+  const subjObj=c.subjects.find(s=>s.id===l.subject_id);
+  const rec=c.records.find(r=>r.schedule_id===sid&&r.lesson_date===date);
+  const curTopic=(rec?.topic&&rec.topic!=='Урок проведён')?rec.topic:'';
+  const curHw=(rec?.note&&!String(rec.note).startsWith('Подтверждено'))?rec.note:'';
+
+  window.closeModal?.();
+  const d=document.createElement('div');d.id='modal';d.className='modalbg';
+  d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="mh"><h2>📖 Тема урока и Что задано</h2><button class="x" onclick="closeModal()">×</button></div>
+    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">Всё, что вы напишете здесь, <b>сразу появится у родителей</b> в расписании этого дня.</p>
+    <form onsubmit="saveLessonTopic(event)">
+      <input type="hidden" name="sid" value="${escH(sid)}">
+      <div class="formgrid">
+        <div class="field"><label>Предмет</label><input value="${escH(subjObj?.name||'Предмет')}" disabled></div>
+        <div class="field"><label>Дата урока</label><input type="date" name="date2" value="${escH(date)}" required></div>
+      </div>
+      <div class="field">
+        <label>1. Что изучали на уроке (Тема)</label>
+        <input name="topic" required value="${escH(curTopic)}" placeholder="Например: Сложение двузначных чисел / Безударные гласные">
+      </div>
+      <div class="field">
+        <label>2. Что задано (Домашнее задание / комментарий для родителей)</label>
+        <textarea name="note" placeholder="Например: Рабочая тетрадь стр. 14 №2, прочитать рассказ...">${escH(curHw)}</textarea>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn ghost" onclick="closeModal()">Отмена</button>
+        <button type="submit" class="btn primary">✓ Сохранить (показать родителям)</button>
+      </div>
+    </form>
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.saveLessonTopic=async(e)=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const sid=f.get('sid');
+  const date=f.get('date2')||isoDate();
+  const topic=String(f.get('topic')||'').trim();
+  const note=String(f.get('note')||'').trim();
+  const client=await getSb();
+  await syncCache(true);
+  const c=window._lcCache;
+  if(!c.me)return alert('Сессия не найдена');
+
+  const existing=c.records.find(r=>r.schedule_id===sid&&r.lesson_date===date);
+  let res;
+  if(existing){
+    res=await client.from('lesson_records').update({
+      topic,note,teacher_id:c.me.id,updated_at:new Date().toISOString()
+    }).eq('id',existing.id);
+  }else{
+    res=await client.from('lesson_records').insert({
+      school_id:c.me.school_id,schedule_id:sid,lesson_date:date,teacher_id:c.me.id,topic,note
+    });
+  }
+  if(res.error)return alert('Ошибка сохранения темы: '+res.error.message);
+
+  /* Также ставим отметку "Был" детям урока, чтобы день сразу считался проведённым */
+  const l=c.schedule.find(x=>x.id===sid);
+  const kids=getKidsForScheduleLesson(l);
+  if(kids.length){
+    const attRows=kids.map(k=>({school_id:c.me.school_id,child_id:k.id,schedule_id:sid,lesson_date:date,status:'present',marked_by:c.me.id}));
+    await client.from('attendance').upsert(attRows,{onConflict:'child_id,schedule_id,lesson_date',ignoreDuplicates:true});
+  }
+
+  window.closeModal?.();
+  await syncCache(true);
+  if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
+  onRender();
+};
+
+/* Ищем запись учителя к уроку: сначала за точную дату, а если учитель вписал на другой день этой же недели — берём свежую запись этого урока за неделю */
+function findLessonRecordForParent(scheduleId,dStr){
+  const c=window._lcCache;
+  const exact=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date===dStr);
+  if(exact&&( (exact.topic&&exact.topic!=='Урок проведён') || (exact.note&&!String(exact.note).startsWith('Подтверждено')) ))return exact;
+  /* Проверяем записи этого же урока (schedule_id) с непустой темой/ДЗ за текущую неделю */
+  const mon=isoDate(getMonday(new Date(dStr+'T12:00:00')));
+  const fri=isoDate(addDays(new Date(mon+'T12:00:00'),6));
+  const weekRec=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date>=mon&&r.lesson_date<=fri&&((r.topic&&r.topic!=='Урок проведён')||(r.note&&!String(r.note).startsWith('Подтверждено'))));
+  return weekRec||exact||null;
+}
+
+/* =========================================================================
+   МОДУЛЬ АВТОРИЗАЦИИ РОДИТЕЛЕЙ И ВКЛАДКА «🔐 СМЕНА ПАРОЛЯ»
    ========================================================================= */
 function getParentAuthMetaMap(){
   const map={};
@@ -403,7 +720,7 @@ async function saveParentAuthMeta(nickRaw,patch){
   const kidsWithNick=c.children.filter(k=>normNick(k.parent_telegram)===nick);
   const myKids=c.parentLinks.filter(x=>x.parent_id===c.me?.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
   const childId=kidsWithNick[0]?.id||myKids[0]?.id||c.children[0]?.id;
-  const subjId=c.subjects[0]?.id;
+  const subjId=c.subjects.find(s=>!s.code.startsWith('__'))?.id;
   if(!childId||!subjId)return;
   await client.from('observations').delete().contains('tags',['__PARENT_AUTH__',nick]);
   await client.from('observations').insert({
@@ -444,29 +761,21 @@ window.syncParentAccountByNick=async(rawNick,silent=false)=>{
   }
   if(!uid)return null;
 
-  const parentLabel=`Родитель (@${nick})`;
   await mainSb.from('profiles').upsert({
-    id:uid,school_id:c.me.school_id,role:'parent',full_name:parentLabel,active:true
+    id:uid,school_id:c.me.school_id,role:'parent',full_name:`Родитель (@${nick})`,active:true
   },{onConflict:'id'});
 
   for(const k of matchingKids){
     const already=c.parentLinks.some(pl=>pl.child_id===k.id&&pl.parent_id===uid);
-    if(!already){
-      await mainSb.from('child_parents').insert({child_id:k.id,parent_id:uid,relation_label:'Родитель'});
-    }
+    if(!already)await mainSb.from('child_parents').insert({child_id:k.id,parent_id:uid,relation_label:'Родитель'});
   }
   const metaMap=getParentAuthMetaMap();
-  if(!metaMap[nick]){
-    await saveParentAuthMeta(nick,{login:nick,parentId:uid,isDefault:true,customPass:'',resetRequested:false});
-  }
+  if(!metaMap[nick])await saveParentAuthMeta(nick,{login:nick,parentId:uid,isDefault:true,customPass:'',resetRequested:false});
   await syncCache(true);
-  if(!silent){
-    alert(`Аккаунт родителя @${nick} активен!\nПривязано детей: ${matchingKids.map(x=>x.name).join(', ')}\nСтартовый пароль: ${DEFAULT_PARENT_PASS}`);
-  }
+  if(!silent)alert(`Аккаунт родителя @${nick} активен!\nДети: ${matchingKids.map(x=>x.name).join(', ')}\nСтартовый пароль: ${DEFAULT_PARENT_PASS}`);
   return uid;
 };
 
-/* Сброс пароля родителя на 000000 одним кликом (для админа) */
 window.resetParentPasswordToDefault=async(rawNick,ev)=>{
   if(ev)ev.stopPropagation();
   const nick=normNick(rawNick);
@@ -477,9 +786,7 @@ window.resetParentPasswordToDefault=async(rawNick,ev)=>{
   const metaMap=getParentAuthMetaMap();
   const knownCustom=metaMap[nick]?.customPass||'';
   let s=await isoSb.auth.signInWithPassword({email,password:DEFAULT_PARENT_PASS});
-  if(s.error&&knownCustom){
-    s=await isoSb.auth.signInWithPassword({email,password:knownCustom});
-  }
+  if(s.error&&knownCustom)s=await isoSb.auth.signInWithPassword({email,password:knownCustom});
   if(s.data?.user){
     await isoSb.auth.updateUser({password:DEFAULT_PARENT_PASS,data:{is_default_password:true,custom_pass:'',reset_requested:false,reset_at:Date.now()}});
     await isoSb.auth.signOut();
@@ -493,7 +800,6 @@ window.resetParentPasswordToDefault=async(rawNick,ev)=>{
   alert(`Пароль для @${nick} сброшен на 000000.`);
 };
 
-/* Кнопка «Забыли пароль?» на экране входа */
 window.openForgotPasswordModal=()=>{
   const ex=document.getElementById('forgotModal');if(ex)ex.remove();
   const d=document.createElement('div');d.id='forgotModal';d.className='modalbg';d.style.zIndex='80';
@@ -517,60 +823,39 @@ window.submitForgotPasswordRequest=async(e)=>{
   const nick=normNick(f.get('nick'));
   if(!nick||nick.length<3)return alert('Введите корректный логин / ник');
   try{localStorage.setItem('lc_reset_req_'+nick,String(Date.now()));}catch(err){}
-  try{
-    const isoSb=await getIsolatedAuthSb();
-    const email=nick+'@littleclan.local';
-    const s=await isoSb.auth.signInWithPassword({email,password:DEFAULT_PARENT_PASS});
-    if(s.data?.user){
-      await isoSb.auth.updateUser({data:{reset_requested:true,reset_requested_at:Date.now(),login:nick}});
-      await isoSb.from('profiles').update({full_name:`Родитель (@${nick}) [ЗАПРОС СБРОСА]`}).eq('id',s.data.user.id);
-      await isoSb.auth.signOut();
-    }
-  }catch(err){}
   document.getElementById('forgotModal')?.remove();
   alert(`Запрос отправлен администратору школы! После подтверждения вы сможете войти со стартовым паролем 000000.`);
 };
 
-/* --- ОТДЕЛЬНАЯ ВКЛАДКА «🔐 СМЕНА ПАРОЛЯ» (БЕЗ ВСПЛЫВАЮЩИХ ОКОН И ЗАЦИКЛИВАНИЙ) --- */
-window.openPasswordPage=()=>{
-  window._lcCustomPage='password';
-  renderPasswordPageView();
-};
-
+window.openPasswordPage=()=>{window._lcCustomPage='password';renderPasswordPageView()};
 window.submitPasswordTabForm=async(e)=>{
   e.preventDefault();
   const f=new FormData(e.target);
-  const p1=String(f.get('p1')||'').trim();
-  const p2=String(f.get('p2')||'').trim();
+  const p1=String(f.get('p1')||'').trim(),p2=String(f.get('p2')||'').trim();
   const msgBox=document.getElementById('luxPassStatusMsg');
   if(p1.length<6)return alert('Пароль должен содержать минимум 6 символов');
   if(p1!==p2)return alert('Пароли не совпадают');
 
   const btn=e.target.querySelector('button[type="submit"]');
   if(btn){btn.disabled=true;btn.textContent='Сохраняем...';}
-
   try{
     const client=await getSb();
     const {data:{user}}=await client.auth.getUser();
     const cleanNick=normNick(user?.email?.split('@')[0]||window._lcCache.authEmail.split('@')[0]||'');
-
-    /* Меняем реальный пароль в Supabase Auth + обновляем флаг в метаданных */
     const {error}=await client.auth.updateUser({
       password:p1,
       data:{is_default_password:p1===DEFAULT_PARENT_PASS,custom_pass:p1,reset_requested:false,pass_updated_at:Date.now(),login:cleanNick}
     });
     if(error)throw error;
-
     if(user?.id&&getActiveRole()==='parent'){
       await client.from('profiles').update({full_name:`Родитель (@${cleanNick}) [ПАРОЛЬ ИЗМЕНЁН]`}).eq('id',user.id);
       await saveParentAuthMeta(cleanNick,{isDefault:p1===DEFAULT_PARENT_PASS,customPass:p1,resetRequested:false});
     }
     try{localStorage.setItem('lc_pass_changed_'+cleanNick,'1');}catch(err){}
     await syncCache(true);
-
     if(msgBox){
       msgBox.style.display='block';
-      msgBox.innerHTML=`<div class="box" style="background:var(--soft);border-color:var(--green2);color:var(--green);margin-bottom:14px"><b>✓ Пароль успешно изменён!</b> Теперь при следующем входе используйте ваш новый пароль.</div>`;
+      msgBox.innerHTML=`<div class="box" style="background:var(--soft);border-color:var(--green2);color:var(--green);margin-bottom:14px"><b>✓ Пароль успешно сохранён!</b></div>`;
     }
     e.target.reset();
     if(btn){btn.disabled=false;btn.textContent='✓ Сохранить новый пароль';}
@@ -587,62 +872,34 @@ function renderPasswordPageView(){
   const rawEmail=c.authEmail||'';
   const loginNick=rawEmail.endsWith('@littleclan.local')?rawEmail.replace('@littleclan.local',''):rawEmail;
   const isChanged=(c.authMeta?.is_default_password===false)||(/\[ПАРОЛЬ ИЗМЕНЁН\]/i.test(c.me?.full_name||''))||localStorage.getItem('lc_pass_changed_'+normNick(loginNick));
-
   const myKids=role==='parent'?c.parentLinks.filter(x=>x.parent_id===c.me?.id).map(x=>c.children.find(k=>k.id===x.child_id&&k.active)).filter(Boolean):[];
 
   main.innerHTML=`<div class="top">
-    <div>
-      <h1>🔐 Смена пароля</h1>
-      <p>Управление паролем вашего личного кабинета Little Clan</p>
-    </div>
+    <div><h1>🔐 Смена пароля</h1><p>Управление паролем вашего личного кабинета</p></div>
     <span class="badge">${isChanged?'✓ Личный пароль установлен':'Стартовый пароль: 000000'}</span>
   </div>
-
   <div class="grid g2">
     <div class="card">
-      <div class="sh"><div><h2>Ваш профиль</h2><p>Данные для входа в дневник</p></div></div>
+      <div class="sh"><div><h2>Ваш профиль</h2></div></div>
       <div class="list">
-        <div class="row">
-          <div class="rowmain">
-            <strong>Логин для входа</strong>
-            <small style="font-size:14px;color:var(--green);font-weight:700">${escH(loginNick||c.me?.full_name||'—')}</small>
-          </div>
-          <span class="chip ${isChanged?'green':'yellow'}">${isChanged?'Личный пароль':'Код 000000'}</span>
-        </div>
-        ${myKids.length?`<div class="row">
-          <div class="rowmain">
-            <strong>Привязанные ученики (${myKids.length})</strong>
-            <small>${myKids.map(k=>escH(k.name)).join(', ')}</small>
-          </div>
-        </div>`:''}
+        <div class="row"><div class="rowmain"><strong>Логин для входа</strong><small style="font-size:14px;color:var(--green);font-weight:700">${escH(loginNick||c.me?.full_name||'—')}</small></div><span class="chip ${isChanged?'green':'yellow'}">${isChanged?'Личный пароль':'Код 000000'}</span></div>
+        ${myKids.length?`<div class="row"><div class="rowmain"><strong>Привязанные ученики (${myKids.length})</strong><small>${myKids.map(k=>escH(k.name)).join(', ')}</small></div></div>`:''}
       </div>
     </div>
-
     <div class="card">
-      <div class="sh"><div><h2>Установить новый пароль</h2><p>Минимум 6 символов · без всплывающих окон</p></div></div>
+      <div class="sh"><div><h2>Установить новый пароль</h2><p>Минимум 6 символов</p></div></div>
       <div id="luxPassStatusMsg" style="display:none"></div>
       <form onsubmit="submitPasswordTabForm(event)">
-        <div class="field">
-          <label>Новый пароль</label>
-          <input type="password" name="p1" minlength="6" required autocomplete="new-password" placeholder="Введите новый пароль (мин. 6 символов)">
-        </div>
-        <div class="field">
-          <label>Повторите новый пароль</label>
-          <input type="password" name="p2" minlength="6" required autocomplete="new-password" placeholder="Повторите новый пароль">
-        </div>
-        <div class="actions">
-          <button type="submit" class="btn primary wide">✓ Сохранить новый пароль</button>
-        </div>
+        <div class="field"><label>Новый пароль</label><input type="password" name="p1" minlength="6" required autocomplete="new-password" placeholder="Введите новый пароль"></div>
+        <div class="field"><label>Повторите новый пароль</label><input type="password" name="p2" minlength="6" required autocomplete="new-password" placeholder="Повторите новый пароль"></div>
+        <div class="actions"><button type="submit" class="btn primary wide">✓ Сохранить новый пароль</button></div>
       </form>
     </div>
   </div>`;
 }
 
-/* Спокойный вход без навязчивых модалок + поддержка и нового пароля, и 000000 */
 function interceptLoginForm(){
-  /* На всякий случай удаляем старую модалку смены пароля, если она осталась в DOM */
   document.getElementById('forcePassModal')?.remove();
-
   const form=document.querySelector('.loginform form');
   if(!form||form.dataset.luxIntercepted)return;
   form.dataset.luxIntercepted='1';
@@ -652,13 +909,15 @@ function interceptLoginForm(){
     const rawLogin=document.getElementById('email')?.value.trim()||'';
     const enteredPass=document.getElementById('pass')?.value||'';
     const nick=normNick(rawLogin);
-    const email=rawLogin.includes('@')&&!rawLogin.startsWith('@')?rawLogin.toLowerCase():(nick+'@littleclan.local');
-    const client=await getSb();
 
-    /* 1. Пробуем прямой вход с введённым паролем */
+    /* Проверяем, не переименован ли логин педагога в карте логинов */
+    const tMap=getTeacherLoginMap();
+    const mappedTeacher=Object.values(tMap).find(x=>normNick(x.login)===nick);
+    const email=mappedTeacher?.authEmail||(rawLogin.includes('@')&&!rawLogin.startsWith('@')?rawLogin.toLowerCase():(nick+'@littleclan.local'));
+
+    const client=await getSb();
     let {data,error}=await client.auth.signInWithPassword({email,password:enteredPass});
 
-    /* 2. Резервная проверка, если пароль хранился в метаданных от прошлой версии */
     if(error&&enteredPass!==DEFAULT_PARENT_PASS){
       const tryDef=await client.auth.signInWithPassword({email,password:DEFAULT_PARENT_PASS});
       if(tryDef.data?.user){
@@ -672,10 +931,10 @@ function interceptLoginForm(){
         }
       }
     }
-    if(error||!data?.user){
-      return alert('Не удалось войти: проверьте логин и пароль (или нажмите «Забыли пароль?»).');
+    if(error||!data?.user)return alert('Не удалось войти: проверьте логин и пароль.');
+    if(mappedTeacher?.authEmail){
+      document.getElementById('email').value=mappedTeacher.authEmail;
     }
-
     await window.doLogin(e);
   });
 
@@ -688,30 +947,20 @@ function interceptLoginForm(){
   }
 }
 
-/* Баннер запросов на сброс пароля для Администратора */
 function renderAdminPasswordResetBanner(){
   if(getActiveRole()!=='admin'||!window._lcCache.ready)return;
   const c=window._lcCache;
   const metaMap=getParentAuthMetaMap();
   const requests=[];
-
   c.profiles.filter(p=>p.role==='parent').forEach(p=>{
     const m=String(p.full_name||'').match(/@([a-z0-9._-]+)/i);
     const nick=m?normNick(m[1]):'';
     const hasFlag=/\[ЗАПРОС СБРОСА\]/i.test(p.full_name)||metaMap[nick]?.resetRequested||localStorage.getItem('lc_reset_req_'+nick);
     if(nick&&hasFlag){
       const kids=c.children.filter(k=>normNick(k.parent_telegram)===nick).map(k=>k.name).join(', ')||'ученик школы';
-      requests.push({nick,kids,parentId:p.id});
-    }
-  });
-  c.children.forEach(k=>{
-    const nick=normNick(k.parent_telegram);
-    if(nick&&(metaMap[nick]?.resetRequested||localStorage.getItem('lc_reset_req_'+nick))&&!requests.some(r=>r.nick===nick)){
-      const kids=c.children.filter(x=>normNick(x.parent_telegram)===nick).map(x=>x.name).join(', ');
       requests.push({nick,kids});
     }
   });
-
   let banner=document.querySelector('.main .lux-reset-banner-wrap');
   if(!requests.length){if(banner)banner.remove();return;}
   if(!banner){
@@ -719,16 +968,13 @@ function renderAdminPasswordResetBanner(){
     document.querySelector('.main .top')?.after(banner);
   }
   banner.innerHTML=requests.map(r=>`<div class="lux-reset-alert">
-    <div>
-      <strong style="color:var(--orange)">🔔 Запрос на сброс пароля от @${escH(r.nick)}</strong>
-      <div style="font-size:12.5px;margin-top:2px">Ученик: <b>${escH(r.kids)}</b></div>
-    </div>
-    <button type="button" class="btn primary" onclick="resetParentPasswordToDefault('${escH(r.nick)}',event)">✓ Подтвердить сброс до 000000</button>
+    <div><strong style="color:var(--orange)">🔔 Запрос на сброс пароля от @${escH(r.nick)}</strong><div style="font-size:12.5px;margin-top:2px">Ученик: <b>${escH(r.kids)}</b></div></div>
+    <button type="button" class="btn primary" onclick="resetParentPasswordToDefault('${escH(r.nick)}',event)">✓ Сбросить до 000000</button>
   </div>`).join('');
 }
 
 /* =========================================================================
-   МОДУЛЬ 2: АНАЛИТИЧЕСКИЙ РАЗДЕЛ «НАБЛЮДЕНИЯ» ДЛЯ АДМИНИСТРАТОРА
+   МОДУЛЬ «НАБЛЮДЕНИЯ (СВОДКА)» ДЛЯ АДМИНИСТРАТОРА
    ========================================================================= */
 window.openAdminObservationsPage=(childIdFilter='all')=>{
   window._lcCustomPage='admin_obs';
@@ -741,25 +987,22 @@ function renderAdminObservationsView(){
   const c=window._lcCache;
   const flt=window._lcObsFilter;
   const classes=c.classes.filter(x=>x.active).sort((a,b)=>extractGrade(a.name).localeCompare(extractGrade(b.name))||a.name.localeCompare(b.name,'ru'));
-  const subjects=c.subjects.filter(x=>x.active);
+  const subjects=c.subjects.filter(x=>x.active&&!x.code.startsWith('__'));
   const activeKids=c.children.filter(k=>k.active&&(flt.classId==='all'||k.class_id===flt.classId)).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
 
   const allObs=c.observations.filter(o=>{
     const t0=(o.tags||[])[0];
-    if(t0==='__MENU__'||t0==='__PARENT_AUTH__'||t0==='__TABEL_DELETED__')return false;
+    if(['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__'].includes(t0))return false;
     const k=c.children.find(ch=>ch.id===o.child_id);
     if(!k||!k.active)return false;
     if(flt.classId!=='all'&&k.class_id!==flt.classId)return false;
     if(flt.subjectId!=='all'&&o.subject_id!==flt.subjectId)return false;
     if(flt.childId!=='all'&&o.child_id!==flt.childId)return false;
-    if(flt.period!=='all'){
-      if(o.observed_on<flt.from||o.observed_on>flt.to)return false;
-    }
+    if(flt.period!=='all'&&(o.observed_on<flt.from||o.observed_on>flt.to))return false;
     if(flt.search){
       const sName=c.subjects.find(s=>s.id===o.subject_id)?.name||'';
       const tName=c.profiles.find(p=>p.id===o.teacher_id)?.full_name||'';
-      const hay=(k.name+' '+sName+' '+(o.note||'')+' '+tName).toLowerCase();
-      if(!hay.includes(flt.search))return false;
+      if(!(k.name+' '+sName+' '+(o.note||'')+' '+tName).toLowerCase().includes(flt.search))return false;
     }
     return true;
   }).sort((a,b)=>String(b.observed_on).localeCompare(String(a.observed_on))||String(b.created_at).localeCompare(String(a.created_at)));
@@ -785,109 +1028,31 @@ function renderAdminObservationsView(){
       contentHtml=`<div>${escH(o.note||'')}</div>${tagPills?`<div style="margin-top:4px">${tagPills}</div>`:''}`;
     }
     return `<tr>
-      <td style="white-space:nowrap"><b>${fmtShortDM(o.observed_on)}</b><div style="font-size:10.5px;color:var(--muted)">${o.observed_on.slice(0,4)}</div></td>
-      <td>
-        <span class="lux-student-link" title="Нажмите, чтобы отфильтровать ленту только по этому ученику" onclick="window._lcObsFilter.childId='${k.id}';renderAdminObservationsView()">${escH(k.name)}</span>
-        <span class="chip" style="margin-left:5px;padding:2px 7px;font-size:10px">${escH(clsName)} кл.</span>
-      </td>
+      <td style="white-space:nowrap"><b>${fmtShortDM(o.observed_on)}</b></td>
+      <td><span class="lux-student-link" onclick="window._lcObsFilter.childId='${k.id}';renderAdminObservationsView()">${escH(k.name)}</span> <span class="chip" style="padding:2px 7px;font-size:10px">${escH(clsName)} кл.</span></td>
       <td><b>${subjObj?.icon||'📘'} ${escH(subjObj?.name||'Предмет')}</b></td>
       <td>${contentHtml}</td>
       <td style="color:var(--muted);font-size:12px">${escH(teacherName)}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="openEditObservationModal('${o.id}')">✎ Изменить</button>
-      </td>
+      <td style="text-align:right"><button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="openEditObservationModal('${o.id}')">✎ Изменить</button></td>
     </tr>`;
-  }).join('')||`<tr><td colspan="6"><div class="empty">По выбранным фильтрам записей не найдено</div></td></tr>`;
+  }).join('')||`<tr><td colspan="6"><div class="empty">Записей не найдено</div></td></tr>`;
 
   main.innerHTML=`<div class="top">
-    <div>
-      <h1>✎ Наблюдения и мини-работы</h1>
-      <p>Сводка по классу и предмету или детализация по конкретному ученику</p>
-    </div>
+    <div><h1>✎ Наблюдения и мини-работы</h1><p>Сводка по классу и предмету или детализация по ученику</p></div>
     <div class="topright">
       <button type="button" class="btn soft" onclick="openAddScoreModal('${flt.childId!=='all'?flt.childId:''}','${flt.subjectId!=='all'?flt.subjectId:''}',false)">+ Проверочная / Зачёт</button>
       <button type="button" class="btn primary" onclick="noteModal()">+ Новое наблюдение</button>
     </div>
   </div>
-
-  ${selectedKid?`<div class="lux-hours-banner" style="margin-bottom:14px">
-    <div>
-      <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Режим детализации по ученику</div>
-      <div style="font-size:20px;font-weight:700;margin-top:2px">👤 ${escH(selectedKid.name)} · ${escH(selectedKidCls)} класс</div>
-      <div style="font-size:12px;opacity:.85;margin-top:2px">Показана полная история по выбранным предметам (всего записей: ${allObs.length})</div>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button type="button" class="btn ghost" style="background:#FFFDF9" onclick="editChild('${selectedKid.id}')">Карточка ребёнка</button>
-      <button type="button" class="btn ghost" style="background:#FFFDF9" onclick="openChildTabelModal('${selectedKid.id}')">★ Табель</button>
-      <button type="button" class="btn soft" onclick="window._lcObsFilter.childId='all';renderAdminObservationsView()">✕ Показать весь класс</button>
-    </div>
-  </div>`:''}
-
-  <div class="lux-filter-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:10px">
-    <div class="field" style="margin:0">
-      <label>1. Класс</label>
-      <select onchange="window._lcObsFilter.classId=this.value;window._lcObsFilter.childId='all';renderAdminObservationsView()">
-        <option value="all" ${flt.classId==='all'?'selected':''}>Все классы</option>
-        ${classes.map(cl=>`<option value="${cl.id}" ${flt.classId===cl.id?'selected':''}>${escH(cl.name)} класс</option>`).join('')}
-      </select>
-    </div>
-    <div class="field" style="margin:0">
-      <label>2. Предмет</label>
-      <select onchange="window._lcObsFilter.subjectId=this.value;renderAdminObservationsView()">
-        <option value="all" ${flt.subjectId==='all'?'selected':''}>Все предметы</option>
-        ${subjects.map(s=>`<option value="${s.id}" ${flt.subjectId===s.id?'selected':''}>${s.icon||'📘'} ${escH(s.name)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field" style="margin:0">
-      <label>3. Ученик (Детализация)</label>
-      <select onchange="window._lcObsFilter.childId=this.value;renderAdminObservationsView()">
-        <option value="all" ${flt.childId==='all'?'selected':''}>Все ученики (${activeKids.length})</option>
-        ${activeKids.map(k=>`<option value="${k.id}" ${flt.childId===k.id?'selected':''}>${escH(k.name)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field" style="margin:0">
-      <label>4. Период</label>
-      <select onchange="setAdminObsPeriod(this.value)">
-        <option value="all" ${flt.period==='all'?'selected':''}>За всё время</option>
-        <option value="week" ${flt.period==='week'?'selected':''}>Эта неделя</option>
-        <option value="month" ${flt.period==='month'?'selected':''}>Текущий месяц</option>
-        <option value="custom" ${flt.period==='custom'?'selected':''}>Выбрать даты...</option>
-      </select>
-    </div>
-    <div class="field" style="margin:0">
-      <label>Поиск по тексту / фамилии</label>
-      <input type="search" value="${escH(flt.search)}" placeholder="🔍 Найти..." oninput="window._lcObsFilter.search=this.value.trim().toLowerCase();renderAdminObservationsView()">
-    </div>
+  ${selectedKid?`<div class="lux-hours-banner"><div><div style="font-size:10.5px;text-transform:uppercase;opacity:.85">Детализация по ученику</div><div style="font-size:20px;font-weight:700">👤 ${escH(selectedKid.name)} · ${escH(selectedKidCls)} класс</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost" style="background:#FFFDF9" onclick="openChildTabelModal('${selectedKid.id}')">★ Табель</button><button type="button" class="btn soft" onclick="window._lcObsFilter.childId='all';renderAdminObservationsView()">✕ Показать весь класс</button></div></div>`:''}
+  <div class="lux-filter-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+    <div class="field" style="margin:0"><label>1. Класс</label><select onchange="window._lcObsFilter.classId=this.value;window._lcObsFilter.childId='all';renderAdminObservationsView()"><option value="all" ${flt.classId==='all'?'selected':''}>Все классы</option>${classes.map(cl=>`<option value="${cl.id}" ${flt.classId===cl.id?'selected':''}>${escH(cl.name)} класс</option>`).join('')}</select></div>
+    <div class="field" style="margin:0"><label>2. Предмет</label><select onchange="window._lcObsFilter.subjectId=this.value;renderAdminObservationsView()"><option value="all" ${flt.subjectId==='all'?'selected':''}>Все предметы</option>${subjects.map(s=>`<option value="${s.id}" ${flt.subjectId===s.id?'selected':''}>${s.icon||'📘'} ${escH(s.name)}</option>`).join('')}</select></div>
+    <div class="field" style="margin:0"><label>3. Ученик</label><select onchange="window._lcObsFilter.childId=this.value;renderAdminObservationsView()"><option value="all" ${flt.childId==='all'?'selected':''}>Все ученики (${activeKids.length})</option>${activeKids.map(k=>`<option value="${k.id}" ${flt.childId===k.id?'selected':''}>${escH(k.name)}</option>`).join('')}</select></div>
+    <div class="field" style="margin:0"><label>Поиск</label><input type="search" value="${escH(flt.search)}" placeholder="🔍 Найти..." oninput="window._lcObsFilter.search=this.value.trim().toLowerCase();renderAdminObservationsView()"></div>
   </div>
-
-  ${flt.period==='custom'?`<div class="lux-filter-bar" style="justify-content:flex-start;gap:10px">
-    <small style="font-weight:700">Период с:</small>
-    <input type="date" value="${flt.from}" style="width:auto" onchange="window._lcObsFilter.from=this.value;renderAdminObservationsView()">
-    <small style="font-weight:700">по:</small>
-    <input type="date" value="${flt.to}" style="width:auto" onchange="window._lcObsFilter.to=this.value;renderAdminObservationsView()">
-  </div>`:''}
-
-  <div class="card">
-    <div class="sh">
-      <div><h2>Сводная лента записей (${allObs.length})</h2><p>Нажмите на фамилию любого ученика в таблице, чтобы открыть детализацию только по нему</p></div>
-    </div>
-    <div class="table">
-      <table>
-        <thead><tr><th>Дата</th><th>Ученик</th><th>Предмет</th><th>Наблюдение / Результат мини-работы</th><th>Педагог</th><th></th></tr></thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    </div>
-  </div>`;
+  <div class="card"><div class="table"><table><thead><tr><th>Дата</th><th>Ученик</th><th>Предмет</th><th>Наблюдение / Результат</th><th>Педагог</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div></div>`;
 }
-
-window.setAdminObsPeriod=(p)=>{
-  const flt=window._lcObsFilter;
-  flt.period=p;
-  const now=new Date(),mon=getMonday(now);
-  if(p==='week'){flt.from=isoDate(mon);flt.to=isoDate(addDays(mon,4));}
-  if(p==='month'){flt.from=isoDate(new Date(now.getFullYear(),now.getMonth(),1));flt.to=isoDate(new Date(now.getFullYear(),now.getMonth()+1,0));}
-  renderAdminObservationsView();
-};
 
 function enhanceChildCardModal(modal){
   if(modal.dataset.childCardEnhanced)return;
@@ -900,108 +1065,22 @@ function enhanceChildCardModal(modal){
   if(tgInp){
     const lbl=tgInp.closest('.field')?.querySelector('label');
     if(lbl)lbl.textContent='Логин / Ник родителя (Telegram или ник для авто-входа)';
-    tgInp.placeholder='Например: @mama_anna или mama_anna';
   }
-
   form.removeAttribute('onsubmit');
   form.addEventListener('submit',async(e)=>{
     const rawNick=form.querySelector('input[name="parentTelegram"]')?.value||'';
     await window.saveChild(e);
-    if(normNick(rawNick).length>=3){
-      await window.syncParentAccountByNick(rawNick,true);
-      onRender();
-    }
+    if(normNick(rawNick).length>=3){await window.syncParentAccountByNick(rawNick,true);onRender();}
   });
-
   if(!cid)return;
-  const kidObj=c.children.find(k=>k.id===cid);
-  if(!kidObj)return;
+  const kidObj=c.children.find(k=>k.id===cid);if(!kidObj)return;
   const nick=normNick(kidObj.parent_telegram);
-  const metaMap=getParentAuthMetaMap();
-  const pMeta=nick?metaMap[nick]:null;
-  const parentProf=c.profiles.find(p=>p.role==='parent'&&nick&&normNick(p.full_name).includes(nick));
-  const isChanged=(pMeta&&pMeta.isDefault===false)||(/\[ПАРОЛЬ ИЗМЕНЁН\]/i.test(parentProf?.full_name||''));
-  const isResetReq=(pMeta&&pMeta.resetRequested)||(/\[ЗАПРОС СБРОСА\]/i.test(parentProf?.full_name||''))||(nick&&localStorage.getItem('lc_reset_req_'+nick));
   const siblings=nick?c.children.filter(k=>k.active&&normNick(k.parent_telegram)===nick):[];
-
-  const parentBox=document.createElement('div');
-  parentBox.className='box';
-  parentBox.style.marginBottom='14px';
-  parentBox.innerHTML=`
-    <h3>👨‍👩‍👧 Родители и доступ в личный кабинет</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:13px">Логин для входа: <b>${nick?'@'+escH(nick):'Не указан (впишите ник выше и сохраните)'}</b></div>
-        ${siblings.length>1?`<div style="font-size:11.5px;color:var(--green);margin-top:3px">✓ По этому нику в кабинет подтянуты дети (${siblings.length}): <b>${siblings.map(x=>escH(x.name)).join(', ')}</b></div>`:''}
-      </div>
-      ${nick?`<span class="chip ${isResetReq?'red':isChanged?'green':'yellow'}">${isResetReq?'🔔 Запрошен сброс пароля!':isChanged?'✓ Пароль изменён родителем':'Стандартный пароль: 000000'}</span>`:''}
-    </div>
-    ${nick?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
-      <button type="button" class="btn soft" onclick="resetParentPasswordToDefault('${escH(nick)}',event)">↺ Сбросить пароль на 000000</button>
-      <button type="button" class="btn ghost" onclick="syncParentAccountByNick('${escH(nick)}',false)">🔗 Синхронизировать привязку</button>
-    </div>`:''}
-  `;
+  const parentBox=document.createElement('div');parentBox.className='box';parentBox.style.marginBottom='14px';
+  parentBox.innerHTML=`<h3>👨‍👩‍👧 Родители и доступ</h3>
+    <div style="font-size:13px">Логин родителя: <b>${nick?'@'+escH(nick):'Не указан'}</b>${siblings.length>1?` · Дети (${siblings.length}): <b>${siblings.map(x=>escH(x.name)).join(', ')}</b>`:''}</div>
+    ${nick?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="btn soft" onclick="resetParentPasswordToDefault('${escH(nick)}',event)">↺ Сбросить пароль на 000000</button><button type="button" class="btn ghost" onclick="syncParentAccountByNick('${escH(nick)}',false)">🔗 Привязать аккаунт</button></div>`:''}`;
   tgInp?.closest('.field')?.after(parentBox);
-
-  const kidObs=c.observations.filter(o=>o.child_id===cid&&!['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__'].includes((o.tags||[])[0])).sort((a,b)=>String(b.observed_on).localeCompare(String(a.observed_on)));
-  const tabsBar=document.createElement('div');
-  tabsBar.className='lux-modal-tabs';
-  tabsBar.innerHTML=`
-    <button type="button" class="lux-modal-tab on" data-t="info">Карточка и родитель</button>
-    <button type="button" class="lux-modal-tab" data-t="obs">✎ История наблюдений (${kidObs.length})</button>
-  `;
-  const obsPane=document.createElement('div');
-  obsPane.style.display='none';
-  const subjUsed=[...new Set(kidObs.map(o=>o.subject_id).filter(Boolean))];
-  const renderKidObsList=(subjFilter='all')=>{
-    const filtered=kidObs.filter(o=>subjFilter==='all'||o.subject_id===subjFilter);
-    obsPane.innerHTML=`
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-        <select style="width:auto;padding:7px 12px" onchange="window._filterKidCardObs(this.value)">
-          <option value="all">Все предметы (${kidObs.length})</option>
-          ${subjUsed.map(sid=>{const s=c.subjects.find(x=>x.id===sid);return `<option value="${sid}" ${subjFilter===sid?'selected':''}>${s?.icon||'📘'} ${escH(s?.name||'Предмет')}</option>`}).join('')}
-        </select>
-        <div style="display:flex;gap:6px">
-          <button type="button" class="btn soft" onclick="closeModal();openAdminObservationsPage('${cid}')">Открыть в сводке ↗</button>
-          <button type="button" class="btn primary" onclick="closeModal();noteModal('','${cid}')">+ Наблюдение</button>
-        </div>
-      </div>
-      <div class="list" style="max-height:52vh;overflow:auto">
-        ${filtered.map(o=>{
-          const s=c.subjects.find(x=>x.id===o.subject_id);
-          const tName=c.profiles.find(p=>p.id===o.teacher_id)?.full_name||'Педагог';
-          const t=o.tags||[];
-          const isScore=t[0]==='__TABEL__'||t[0]==='__TABEL_FREE__'||t[0]==='__TABEL_PF__';
-          const badge=t[0]==='__TABEL_FREE__'?t[2]:t[0]==='__TABEL__'?`${t[2]}/100`:t[0]==='__TABEL_PF__'?(t[2]==='fail'?'Незачёт':'Зачёт'):'';
-          return `<div class="row">
-            <span class="time">${fmtShortDM(o.observed_on)}</span>
-            <div class="rowmain">
-              <strong>${s?.icon||'📘'} ${escH(s?.name||'Предмет')} ${isScore?`<span class="chip orange">${escH(t[1])}: ${escH(badge)}</span>`:''}</strong>
-              <small style="color:var(--ink);font-size:12.5px;margin-top:4px">${escH(o.note||'')}</small>
-              <small>${fmtDateRu(o.observed_on)} · ${escH(tName)}</small>
-            </div>
-            <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="openEditObservationModal('${o.id}')">✎</button>
-          </div>`;
-        }).join('')||'<div class="empty">У этого ученика пока нет записей наблюдений.</div>'}
-      </div>
-    `;
-  };
-  window._filterKidCardObs=renderKidObsList;
-  renderKidObsList('all');
-
-  const mh=modal.querySelector('.mh');
-  mh.after(tabsBar);
-  form.after(obsPane);
-  const archiveActions=modal.querySelectorAll('.actions');
-  tabsBar.querySelectorAll('.lux-modal-tab').forEach(btn=>{
-    btn.onclick=()=>{
-      tabsBar.querySelectorAll('.lux-modal-tab').forEach(x=>x.classList.toggle('on',x===btn));
-      const isObs=btn.dataset.t==='obs';
-      form.style.display=isObs?'none':'block';
-      if(archiveActions[1])archiveActions[1].style.display=isObs?'none':'flex';
-      obsPane.style.display=isObs?'block':'none';
-    };
-  });
 }
 
 function getSelectedParentChild(){
@@ -1076,7 +1155,7 @@ function calcTeacherStats(teacherId,fromStr,toStr){
           planHours+=h;planCount++;
           if(done){doneHours+=h;doneCount++;}
         }
-        items.push({scheduleId:l.id,date:dStr,weekday:wd,start:String(l.starts_at).slice(0,5),end:String(l.ends_at).slice(0,5),hours:h,nonCount,done,topic:rec?.topic||'',subj,icon:subjObj?.icon||'📘',target,teacherName:tName,teacherId:effTeacher(l,dStr)});
+        items.push({scheduleId:l.id,date:dStr,weekday:wd,start:String(l.starts_at).slice(0,5),end:String(l.ends_at).slice(0,5),hours:h,nonCount,done,topic:rec?.topic||'',hw:(rec?.note&&!String(rec.note).startsWith('Подтверждено'))?rec.note:'',subj,icon:subjObj?.icon||'📘',target,teacherName:tName,teacherId:effTeacher(l,dStr)});
       });
     }
     cur.setDate(cur.getDate()+1);
@@ -1163,6 +1242,7 @@ window.shiftCalMonth=(delta)=>{
   onRender();
 };
 
+/* Безопасное подтверждение урока (НЕ стирает написанную учителем тему и домашнее задание!) */
 window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   if(ev)ev.stopPropagation();
   if(getActiveRole()==='parent')return;
@@ -1176,7 +1256,10 @@ window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   const tid=teacherIdOverride||effTeacher(l||{},dateStr)||c.me.id;
 
   if(existing||hasAtt){
-    if(!confirm(`Снять отметку о проведении урока за ${fmtDateRu(dateStr)}?`))return;
+    const hasCustomTopic=(existing?.topic&&existing.topic!=='Урок проведён')||(existing?.note&&!String(existing.note).startsWith('Подтверждено'));
+    if(hasCustomTopic){
+      if(!confirm(`У этого урока уже записана тема/ДЗ («${existing.topic}»). Снять отметку о проведении и удалить запись?`))return;
+    }else if(!confirm(`Снять отметку о проведении урока за ${fmtDateRu(dateStr)}?`))return;
     if(existing)await client.from('lesson_records').delete().eq('id',existing.id);
     if(hasAtt)await client.from('attendance').delete().eq('schedule_id',scheduleId).eq('lesson_date',dateStr);
   }else{
@@ -1215,7 +1298,7 @@ window.openEditObservationModal=(obsId)=>{
   const o=c.observations.find(x=>x.id===obsId);
   if(!o)return alert('Наблюдение не найдено');
   const kids=c.children.filter(k=>k.active).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
-  let subs=c.subjects.filter(s=>s.active);
+  let subs=c.subjects.filter(s=>s.active&&!s.code.startsWith('__'));
   if(getActiveRole()==='teacher'&&c.me){
     const mySubjIds=new Set(c.schedule.filter(l=>l.active&&l.teacher_id===c.me.id).map(l=>l.subject_id));
     subs=subs.filter(s=>s.id===o.subject_id||mySubjIds.has(s.id)||['circle','breakfast','lunch','snack','extended','break'].includes(s.code)||/круг|завтрак|обед|полдник|продлёнка|перемена/i.test(s.name));
@@ -1285,7 +1368,7 @@ function upgradeObservationEditButtons(){
   const usedIds=new Set();
 
   document.querySelectorAll('.main .list .row').forEach(r=>{
-    if(r.querySelector('.lux-edit-obs-btn')||r.querySelector('.time'))return;
+    if(r.querySelector('.lux-edit-obs-btn')||r.querySelector('.time')||r.closest('.lux-dash-teachers'))return;
     const st=r.querySelector('.rowmain strong')?.textContent||'';
     const smalls=r.querySelectorAll('.rowmain small');
     if(!smalls.length)return;
@@ -1309,7 +1392,12 @@ function upgradeObservationEditButtons(){
   });
 }
 
-/* --- ЦИКЛИЧНОЕ МЕНЮ ПИТАНИЯ --- */
+/* --- ЦИКЛИЧНОЕ МЕНЮ ПИТАНИЯ (СОХРАНЯЕТСЯ В SUBJECTS ДЛЯ ВСЕХ РОДИТЕЛЕЙ) --- */
+function getMenuData(){
+  const cfg=getSchoolConfig('__lc_menu__',{activeWeek:1,menu:DEFAULT_MENU});
+  return {menu:cfg.menu||DEFAULT_MENU,activeWeek:Number(cfg.activeWeek)||1};
+}
+
 function buildTodayMealCardHtml(dStr=isoDate()){
   const wd=new Date(dStr+'T12:00:00').getDay();
   const dayIdx=(wd>=1&&wd<=5)?wd:1;
@@ -1341,19 +1429,8 @@ window.saveSchoolMenu=async(e)=>{
   for(let d=1;d<=5;d++){
     menu[wEdit][d]=[f.get(`br_${d}`)||'',f.get(`lu_${d}`)||'',f.get(`sn_${d}`)||''];
   }
-  const client=await getSb();
-  const c=window._lcCache;
-  const anyChild=c.children[0]?.id;
-  const anySubj=c.subjects.find(s=>s.code==='breakfast')?.id||c.subjects[0]?.id;
-  if(!anyChild||!anySubj)return alert('Добавьте хотя бы одного ребёнка и предмет для сохранения настроек');
-  await client.from('observations').delete().contains('tags',['__MENU__']);
-  const {error}=await client.from('observations').insert({
-    school_id:c.me.school_id,child_id:anyChild,subject_id:anySubj,teacher_id:c.me.id,
-    observed_on:isoDate(),note:JSON.stringify({activeWeek,menu}),tags:['__MENU__']
-  });
-  if(error)return alert('Ошибка сохранения меню: '+error.message);
-  await syncCache(true);
-  alert('Меню питания сохранено! Родители уже видят обновления.');
+  await saveSchoolConfig('__lc_menu__',{activeWeek,menu});
+  alert('Меню питания сохранено! Все родители видят обновления.');
   renderMenuPageView();
 };
 
@@ -1407,10 +1484,13 @@ function renderMenuPageView(){
   </form>`;
 }
 
-/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ: 4 предмета (100 б.) + Английский (вручную любой балл и из скольки!) + 6 предметов (Зачёт/Незачёт) --- */
+/* =========================================================================
+   ТАБЕЛЬ УСПЕВАЕМОСТИ ПО ЧЕТВЕРТЯМ (1, 2, 3, 4 ЧЕТВЕРТЬ + ВЕСЬ ГОД)
+   ========================================================================= */
 function parseTabelObs(o){
   const t=o.tags||[];
   if(['__TABEL_DELETED__','__MENU__','__PARENT_AUTH__'].includes(t[0]))return null;
+  const explicitQ=['q1','q2','q3','q4'].includes(t[3])?t[3]:detectQuarterByDate(o.observed_on||'');
   if(t[0]==='__TABEL_FREE__'){
     const raw=String(t[2]||'').trim();
     const m=raw.match(/(\d+(?:[.,]\d+)?)\s*(?:\/|из|-)\s*(\d+(?:[.,]\d+)?)/i);
@@ -1420,36 +1500,105 @@ function parseTabelObs(o){
       if(max>0)pct=Math.round((score/max)*100);
       badge=`${m[1]}/${m[2]}`;
     }
-    return {id:o.id,kind:'score100',isFree:true,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score,max,pct,badge,topic:o.note||''};
+    return {id:o.id,kind:'score100',isFree:true,quarter:explicitQ,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score,max,pct,badge,topic:o.note||''};
   }
   if(t[0]==='__TABEL__'){
     const raw=String(t[2]||'0').trim();
     const m=raw.match(/(\d+(?:[.,]\d+)?)\s*(?:\/|из)\s*(\d+(?:[.,]\d+)?)/i);
     if(m){
       const sc=Number(m[1].replace(',','.')),mx=Number(m[2].replace(',','.'));
-      return {id:o.id,kind:'score100',isFree:true,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:mx,pct:mx>0?Math.round((sc/mx)*100):85,badge:`${m[1]}/${m[2]}`,topic:o.note||''};
+      return {id:o.id,kind:'score100',isFree:true,quarter:explicitQ,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:mx,pct:mx>0?Math.round((sc/mx)*100):85,badge:`${m[1]}/${m[2]}`,topic:o.note||''};
     }
     const sc=Number(raw)||0;
-    return {id:o.id,kind:'score100',isFree:false,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:100,pct:sc,badge:`${sc}/100`,topic:o.note||''};
+    return {id:o.id,kind:'score100',isFree:false,quarter:explicitQ,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Проверочная работа',score:sc,max:100,pct:sc,badge:`${sc}/100`,topic:o.note||''};
   }
   if(t[0]==='__TABEL_PF__'){
     const st=t[2]==='fail'?'fail':'pass';
-    return {id:o.id,kind:'passfail',childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Зачётная работа',status:st,label:st==='pass'?'Зачёт':'Незачёт',topic:o.note||''};
+    return {id:o.id,kind:'passfail',quarter:explicitQ,childId:o.child_id,subjectId:o.subject_id,teacherId:o.teacher_id,date:o.observed_on,type:t[1]||'Зачётная работа',status:st,label:st==='pass'?'Зачёт':'Незачёт',topic:o.note||''};
   }
   return null;
 }
-function getChildScores(childId){
-  return window._lcCache.observations.map(parseTabelObs).filter(x=>x&&(!childId||x.childId===childId)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+function getChildScores(childId,quarterFilter=window._lcActiveQuarter){
+  return window._lcCache.observations.map(parseTabelObs).filter(x=>{
+    if(!x)return false;
+    if(childId&&x.childId!==childId)return false;
+    if(quarterFilter&&quarterFilter!=='all'&&x.quarter!==quarterFilter)return false;
+    return true;
+  }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 }
+
+/* Окно настройки дат четвертей для Админа */
+window.openQuartersConfigModal=()=>{
+  if(getActiveRole()!=='admin')return;
+  const qs=getQuartersConfig();
+  const ex=document.getElementById('qCfgModal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='qCfgModal';d.className='modalbg';d.style.zIndex='85';
+  d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
+    <div class="mh"><h2>⚙️ Даты учебных четвертей</h2><button class="x" onclick="document.getElementById('qCfgModal').remove()">×</button></div>
+    <form onsubmit="saveQuartersConfigForm(event)">
+      ${['q1','q2','q3','q4'].map(k=>{
+        const q=qs[k];
+        return `<div class="box" style="margin-top:8px;padding:12px">
+          <b>${escH(q.name)}</b>
+          <div class="formgrid" style="margin-top:6px">
+            <div class="field" style="margin:0"><label>Начало</label><input type="date" name="${k}_start" value="${q.start}" required></div>
+            <div class="field" style="margin:0"><label>Окончание</label><input type="date" name="${k}_end" value="${q.end}" required></div>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="actions">
+        <button type="button" class="btn ghost" onclick="document.getElementById('qCfgModal').remove()">Отмена</button>
+        <button type="submit" class="btn primary">✓ Сохранить даты четвертей</button>
+      </div>
+    </form>
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.saveQuartersConfigForm=async(e)=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const qs=getQuartersConfig();
+  ['q1','q2','q3','q4'].forEach(k=>{
+    const s=f.get(k+'_start'),en=f.get(k+'_end');
+    qs[k].start=s;qs[k].end=en;
+    qs[k].label=`${fmtShortDM(s)} — ${fmtShortDM(en)}`;
+  });
+  await saveSchoolConfig('__lc_quarters__',qs);
+  document.getElementById('qCfgModal')?.remove();
+  onRender();
+};
+
+function buildQuarterTabsHtml(onSelectFnName){
+  const qs=getQuartersConfig();
+  const tabs=[
+    ['q1',`1 четверть (${qs.q1.label})`],
+    ['q2',`2 четверть (${qs.q2.label})`],
+    ['q3',`3 четверть (${qs.q3.label})`],
+    ['q4',`4 четверть (${qs.q4.label})`],
+    ['all','Весь год']
+  ];
+  return `<div class="lux-filter-bar" style="margin-bottom:12px">
+    <div class="lux-grade-pills">
+      ${tabs.map(([k,lbl])=>`<button type="button" class="lux-gpill ${window._lcActiveQuarter===k?'on':''}" onclick="window._lcActiveQuarter='${k}';${onSelectFnName}()">${escH(lbl)}</button>`).join('')}
+    </div>
+    ${getActiveRole()==='admin'?`<button type="button" class="btn ghost" style="padding:6px 11px;font-size:11px" onclick="openQuartersConfigModal()">⚙️ Даты четвертей</button>`:''}
+  </div>`;
+}
+
 function cleanObservationFeeds(){
   document.querySelectorAll('.row, .feeditem').forEach(el=>{
     if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__PARENT_AUTH__|__TABEL_DELETED__/.test(el.textContent))el.remove();
   });
   document.querySelectorAll('.chips .chip').forEach(ch=>{
     const txt=ch.textContent.trim();
-    if(/__TABEL|__MENU|__PARENT_AUTH|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
+    if(/__TABEL|__MENU|__PARENT_AUTH|^(q1|q2|q3|q4)\s*·|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
       ch.remove();
     }
+  });
+  /* Скрываем технические строки __lc_ из раздела Предметы */
+  document.querySelectorAll('.main .card').forEach(c=>{
+    if(c.textContent.includes('__lc_'))c.style.display='none';
   });
 }
 
@@ -1478,6 +1627,8 @@ window.syncScoreModalFields=()=>{
 window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
   if(getActiveRole()==='parent')return;
   const c=window._lcCache;
+  const qs=getQuartersConfig();
+  const curQ=window._lcActiveQuarter==='all'?'q2':window._lcActiveQuarter;
   const kids=c.children.filter(k=>k.active).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
   const scoreSubs=c.subjects.filter(s=>s.active&&(getTabelSubjectMode(s)==='score100'||getTabelSubjectMode(s)==='eng_free'));
   const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail');
@@ -1486,7 +1637,18 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
   d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
     <div class="mh"><h2>Внести результат в Табель</h2><button class="x" onclick="document.getElementById('scoreModal').remove()">×</button></div>
     <form onsubmit="saveScoreEntry(event,${inModal})">
-      <div class="field"><label>Ребёнок</label><select name="childId" required>${kids.map(k=>{const cl=c.classes.find(x=>x.id===k.class_id)?.name||'';return `<option value="${k.id}" ${k.id===childId?'selected':''}>${escH(k.name)} (${escH(cl)} кл.)</option>`}).join('')}</select></div>
+      <div class="formgrid">
+        <div class="field"><label>Ребёнок</label><select name="childId" required>${kids.map(k=>{const cl=c.classes.find(x=>x.id===k.class_id)?.name||'';return `<option value="${k.id}" ${k.id===childId?'selected':''}>${escH(k.name)} (${escH(cl)} кл.)</option>`}).join('')}</select></div>
+        <div class="field">
+          <label>Четверть</label>
+          <select name="quarter" required>
+            <option value="q1" ${curQ==='q1'?'selected':''}>1 четверть (${qs.q1.label})</option>
+            <option value="q2" ${curQ==='q2'?'selected':''}>2 четверть (${qs.q2.label})</option>
+            <option value="q3" ${curQ==='q3'?'selected':''}>3 четверть (${qs.q3.label})</option>
+            <option value="q4" ${curQ==='q4'?'selected':''}>4 четверть (${qs.q4.label})</option>
+          </select>
+        </div>
+      </div>
       <div class="field">
         <label>Предмет</label>
         <select name="subjectId" id="luxTabelSubjSelect" onchange="syncScoreModalFields()" required>
@@ -1507,7 +1669,6 @@ window.openAddScoreModal=(childId='',subjectId='',inModal=false)=>{
         <div class="field">
           <label>Баллы и из скольки (вручную)</label>
           <input type="text" id="luxEngFreeInput" name="engFreeScore" placeholder="Например: 45/50 или 54/60">
-          <small style="color:var(--muted);font-size:11px">Напишите сами в любом формате: 45/50, 58/60, 18 из 20 и т.д.</small>
         </div>
       </div>
       <div class="formgrid" id="luxModePFFields" style="display:none">
@@ -1530,23 +1691,24 @@ window.saveScoreEntry=async(e,reopenChildModal)=>{
   e.preventDefault();
   if(getActiveRole()==='parent')return;
   const f=new FormData(e.target);
-  const childId=f.get('childId'),subjectId=f.get('subjectId'),date=f.get('date'),topic=f.get('topic').trim();
+  const childId=f.get('childId'),subjectId=f.get('subjectId'),date=f.get('date'),topic=f.get('topic').trim(),q=f.get('quarter')||'q2';
   const c=window._lcCache;
   const subjObj=c.subjects.find(s=>s.id===subjectId);
   const mode=getTabelSubjectMode(subjObj);
   let tags=[];
   if(mode==='passfail'){
-    tags=['__TABEL_PF__',f.get('workTypePF')||'Зачётная работа',f.get('pfStatus')==='fail'?'fail':'pass'];
+    tags=['__TABEL_PF__',f.get('workTypePF')||'Зачётная работа',f.get('pfStatus')==='fail'?'fail':'pass',q];
   }else if(mode==='eng_free'){
     const raw=(f.get('engFreeScore')||'').trim();
     if(!raw)return alert('Напишите баллы (например: 45/50 или 54/60)');
-    tags=['__TABEL_FREE__',f.get('workTypeEng')||'Проверочная работа',raw];
+    tags=['__TABEL_FREE__',f.get('workTypeEng')||'Проверочная работа',raw,q];
   }else{
-    tags=['__TABEL__',f.get('workType100')||'Проверочная работа',String(Math.min(100,Math.max(0,Number(f.get('score')||0))))];
+    tags=['__TABEL__',f.get('workType100')||'Проверочная работа',String(Math.min(100,Math.max(0,Number(f.get('score')||0)))),q];
   }
   const client=await getSb();
   const {error}=await client.from('observations').insert({school_id:c.me.school_id,child_id:childId,subject_id:subjectId,teacher_id:c.me.id,observed_on:date,note:topic,tags});
   if(error)return alert('Ошибка: '+error.message);
+  window._lcActiveQuarter=q;
   document.getElementById('scoreModal')?.remove();
   await syncCache(true);
   if(reopenChildModal)window.openChildTabelModal(childId);
@@ -1563,18 +1725,22 @@ window.deleteScoreEntry=async(obsId,childId)=>{
   onRender();
 };
 
-function buildChildTabelHtml(childId,allowEditParam=false){
+function buildChildTabelHtml(childId,allowEditParam=false,refreshFnName='onRender'){
   const role=getActiveRole();
   const canEdit=allowEditParam&&(role==='admin'||role==='teacher');
   const c=window._lcCache;
   const k=c.children.find(x=>x.id===childId);if(!k)return '<div class="empty">Ребёнок не найден</div>';
   const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'';
+  const qs=getQuartersConfig();
+  const curQ=window._lcActiveQuarter||'q2';
+  const qTitle=curQ==='all'?'Весь учебный год':`${qs[curQ]?.name||''} (${qs[curQ]?.label||''})`;
+
   const order100=['rus','math','reading','literature','world','eng'];
   const scoreSubs=c.subjects.filter(s=>s.active&&(getTabelSubjectMode(s)==='score100'||getTabelSubjectMode(s)==='eng_free')).sort((a,b)=>order100.indexOf(a.code)-order100.indexOf(b.code));
   const orderPF=['ict','technology','music','art','project','calligraphy'];
   const pfSubs=c.subjects.filter(s=>s.active&&getTabelSubjectMode(s)==='passfail').sort((a,b)=>orderPF.indexOf(a.code)-orderPF.indexOf(b.code));
 
-  const allEntries=getChildScores(childId);
+  const allEntries=getChildScores(childId,curQ);
   const entries100=allEntries.filter(x=>x.kind==='score100');
   const entriesPF=allEntries.filter(x=>x.kind==='passfail');
 
@@ -1609,57 +1775,65 @@ function buildChildTabelHtml(childId,allowEditParam=false){
       const shortT=x.type==='Контрольная работа'?'Контр.':x.type==='Проверочная работа'?'Проверочн.':x.type;
       return `<span class="lux-score-pill ${clsP}"><b>${escH(x.badge)}</b> <span>${escH(shortT)}${x.topic?' · '+escH(x.topic):''} <small>(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:0;color:var(--red);cursor:pointer;font-weight:700" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`;
     }).join('');
-    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b> <small style="color:var(--muted)">${isEng?'(своя шкала группы)':'(из 100 б.)'}</small></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Работ пока не было</span>'}</td><td style="text-align:center">${avgCell}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}</tr>`;
+    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b> <small style="color:var(--muted)">${isEng?'(шкала группы)':'(из 100 б.)'}</small></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Работ в этой четверти пока нет</span>'}</td><td style="text-align:center">${avgCell}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Балл</button></td>`:''}</tr>`;
   }).join('');
 
   const rowsPF=pfSubs.map(s=>{
     const sc=entriesPF.filter(x=>x.subjectId===s.id);
     const last=sc[sc.length-1]||null;
     const pills=sc.map(x=>`<span class="lux-score-pill ${x.status==='pass'?'pf-pass':'pf-fail'}"><b>${x.status==='pass'?'✓ Зачёт':'✕ Незачёт'}</b> <span>${escH(x.topic||x.type)} <small>(${fmtShortDM(x.date)})</small></span>${canEdit?`<button type="button" style="border:0;background:0;color:var(--red);cursor:pointer;font-weight:700" onclick="deleteScoreEntry('${x.id}','${childId}')">×</button>`:''}</span>`).join('');
-    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Зачётов пока нет</span>'}</td><td style="text-align:center">${last?(last.status==='pass'?'<span class="chip green">✓ ЗАЧЁТ</span>':'<span class="chip red">✕ НЕЗАЧЁТ</span>'):'—'}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Зачёт</button></td>`:''}</tr>`;
+    return `<tr><td><b>${escH(displayTabelSubjName(s))}</b></td><td>${pills||'<span style="color:var(--muted);font-size:12px">Зачётов в этой четверти пока нет</span>'}</td><td style="text-align:center">${last?(last.status==='pass'?'<span class="chip green">✓ ЗАЧЁТ</span>':'<span class="chip red">✕ НЕЗАЧЁТ</span>'):'—'}</td>${canEdit?`<td style="text-align:right"><button type="button" class="btn soft" onclick="openAddScoreModal('${childId}','${s.id}',true)">+ Зачёт</button></td>`:''}</tr>`;
   }).join('');
 
-  return `<div class="lux-hours-banner"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Академический Табель</div><div style="font-size:18px;font-weight:700;margin-top:2px">${escH(k.name)} · ${escH(clsName)} класс</div><div style="font-size:11.5px;opacity:.85;margin-top:2px">Основные предметы — из 100 б. · Английский язык — по шкале группы · Зачётные дисциплины</div></div><div style="text-align:right"><b>${avg100!==null?avg100+' / 100':'—'}</b><div style="font-size:11.5px;opacity:.9">Зачётов: ${entriesPF.filter(x=>x.status==='pass').length}</div></div></div>
-  <div class="actions" style="margin:0 0 10px;justify-content:space-between"><button type="button" class="btn ghost" onclick="printChildTabelPdf('${childId}')">⇩ Скачать PDF</button>${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл / зачёт</button>`:''}</div>
+  return `${buildQuarterTabsHtml(refreshFnName)}
+  <div class="lux-hours-banner"><div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Академический Табель · ${escH(qTitle)}</div><div style="font-size:18px;font-weight:700;margin-top:2px">${escH(k.name)} · ${escH(clsName)} класс</div><div style="font-size:11.5px;opacity:.85;margin-top:2px">Основные предметы — из 100 б. · Английский — по шкале группы · Зачётные дисциплины</div></div><div style="text-align:right"><b>${avg100!==null?avg100+' / 100':'—'}</b><div style="font-size:11.5px;opacity:.9">Зачётов за период: ${entriesPF.filter(x=>x.status==='pass').length}</div></div></div>
+  <div class="actions" style="margin:0 0 10px;justify-content:space-between"><button type="button" class="btn ghost" onclick="printChildTabelPdf('${childId}')">⇩ Скачать PDF (${escH(qs[curQ]?.name||'Год')})</button>${canEdit?`<button type="button" class="btn primary" onclick="openAddScoreModal('${childId}','',true)">+ Выставить балл / зачёт</button>`:''}</div>
   <div class="lux-subsec-title">I. Основные предметы (Русский, Математика, Литература, Окр. мир — из 100 б. · Английский — по шкале группы)</div>
-  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные работы</th><th style="text-align:center">Итог / Средний</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows100}</tbody></table></div>
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Проверочные и контрольные (${escH(qs[curQ]?.name||'Все')})</th><th style="text-align:center">Итог четверти</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rows100}</tbody></table></div>
   <div class="lux-subsec-title">II. Зачётные дисциплины (Зачёт / Незачёт)</div>
-  <div class="table"><table><thead><tr><th>Предмет</th><th>Зачёты и проекты</th><th style="text-align:center">Итог</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rowsPF}</tbody></table></div>`;
+  <div class="table"><table><thead><tr><th>Предмет</th><th>Зачёты и проекты (${escH(qs[curQ]?.name||'Все')})</th><th style="text-align:center">Итог четверти</th>${canEdit?'<th></th>':''}</tr></thead><tbody>${rowsPF}</tbody></table></div>`;
 }
 
 window.openChildTabelModal=(childId)=>{
   const c=window._lcCache;const k=c.children.find(x=>x.id===childId);if(!k)return;
   const canEdit=getActiveRole()==='admin'||getActiveRole()==='teacher';
+  window._curModalTabelKid=childId;
+  window._refreshModalTabel=()=>window.openChildTabelModal(window._curModalTabelKid);
   window.closeModal?.();
   const d=document.createElement('div');d.id='modal';d.className='modalbg';
-  d.innerHTML=`<div class="modal" style="width:min(880px,100%)" onclick="event.stopPropagation()"><div class="mh"><h2>★ Табель · ${escH(k.name)}</h2><button class="x" onclick="closeModal()">×</button></div>${buildChildTabelHtml(childId,canEdit)}</div>`;
+  d.innerHTML=`<div class="modal" style="width:min(880px,100%)" onclick="event.stopPropagation()"><div class="mh"><h2>★ Табель · ${escH(k.name)}</h2><button class="x" onclick="closeModal()">×</button></div>${buildChildTabelHtml(childId,canEdit,'_refreshModalTabel')}</div>`;
   d.onclick=()=>d.remove();document.body.appendChild(d);
 };
 window.printChildTabelPdf=(childId)=>{
   const k=window._lcCache.children.find(x=>x.id===childId);if(!k)return;
   const w=window.open('','_blank');if(!w)return;
-  w.document.write(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Табель — ${escH(k.name)}</title><style>body{font-family:Georgia,serif;padding:20px}table{width:100%;border-collapse:collapse;margin:8px 0 16px}th,td{border:1px solid #DFD5C5;padding:8px;text-align:left;font-size:12px}th{background:#F6F0E4}.btn{display:none}</style></head><body><h1>Little Clan · Табель успеваемости</h1>${buildChildTabelHtml(childId,false)}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.write(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Табель — ${escH(k.name)}</title><style>body{font-family:Georgia,serif;padding:20px}table{width:100%;border-collapse:collapse;margin:8px 0 16px}th,td{border:1px solid #DFD5C5;padding:8px;text-align:left;font-size:12px}th{background:#F6F0E4}.btn,.lux-filter-bar{display:none}</style></head><body><h1>Little Clan · Табель успеваемости</h1>${buildChildTabelHtml(childId,false)}<script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
 };
 
 window.openTabelPage=()=>{window._lcCustomPage='tabel';renderTabelPageView()};
-async function renderTabelPageView(){
+window.renderTabelPageView=async()=>{
   const main=document.querySelector('.main');if(!main)return;
-  await syncCache(true);
+  await syncCache(false);
   const c=window._lcCache,role=getActiveRole();
+  const qs=getQuartersConfig();
+  const curQ=window._lcActiveQuarter||'q2';
+
   if(role==='parent'){
     const myKids=c.parentLinks.filter(x=>x.parent_id===c.me?.id).map(x=>c.children.find(k=>k.id===x.child_id&&k.active)).filter(Boolean);
     const k=getSelectedParentChild()||myKids[0];
-    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Основные предметы (100 б.), Английский язык (по шкале группы) и система «Зачёт / Незачёт»</p></div></div>
+    main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости по четвертям</h1><p>Основные предметы (100 б.), Английский язык (по шкале группы) и система «Зачёт / Незачёт»</p></div></div>
     ${myKids.length>1?`<div class="card" style="margin-bottom:14px"><div class="chips">${myKids.map(x=>`<button class="btn ${x.id===k?.id?'primary':'soft'}" onclick="sessionStorage.setItem('PARENT_CHILD','${x.id}');renderTabelPageView()">${escH(x.first_name)}</button>`).join('')}</div></div>`:''}
-    <div class="card">${k?buildChildTabelHtml(k.id,false):'<div class="empty">Ребёнок не привязан</div>'}</div>`;
+    <div class="card">${k?buildChildTabelHtml(k.id,false,'renderTabelPageView'):'<div class="empty">Ребёнок не привязан</div>'}</div>`;
     return;
   }
   let kids=c.children.filter(k=>k.active).sort((a,b)=>{
     const ca=c.classes.find(x=>x.id===a.class_id)?.name||'',cb=c.classes.find(x=>x.id===b.class_id)?.name||'';
     return extractGrade(ca).localeCompare(extractGrade(cb))||ca.localeCompare(cb,'ru')||a.name.localeCompare(b.name,'ru');
   });
-  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости</h1><p>Русский, Математика, Литература, Окр. мир (из 100 б.) · Английский (свободный ввод: из 50, из 60 и т.д.) · Зачётные дисциплины</p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл / зачёт</button></div></div><div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
+  main.innerHTML=`<div class="top"><div><h1>★ Табель успеваемости · ${escH(curQ==='all'?'Весь год':qs[curQ]?.name)}</h1><p>Выбирайте четверть ниже · сейчас активна: <b>${escH(curQ==='all'?'Весь год':`${qs[curQ]?.name} (${qs[curQ]?.label})`)}</b></p></div><div class="topright"><button class="btn primary" onclick="openAddScoreModal('','',false)">+ Выставить балл / зачёт</button></div></div>
+  ${buildQuarterTabsHtml('renderTabelPageView')}
+  <div id="luxTabelFilterMount"></div><div id="luxTabelKidsGrid" class="lux-kids-grid"></div>`;
   const grid=main.querySelector('#luxTabelKidsGrid');
   const renderList=()=>{
     grid.innerHTML='';let lastG=null;const q=window._lcSearch;
@@ -1670,7 +1844,7 @@ async function renderTabelPageView(){
         lastG=g;const div=document.createElement('div');div.className='lux-grade-divider';
         div.textContent=g==='other'?'Другие классы':`${g} параллель (${g} класс)`;grid.appendChild(div);
       }
-      const allSc=getChildScores(k.id);
+      const allSc=getChildScores(k.id,curQ);
       const sc100=allSc.filter(x=>x.kind==='score100'&&!isEnglishSubj(c.subjects.find(s=>s.id===x.subjectId))&&x.score!==null);
       const scEng=allSc.filter(x=>x.kind==='score100'&&isEnglishSubj(c.subjects.find(s=>s.id===x.subjectId)));
       const scPF=allSc.filter(x=>x.kind==='passfail'&&x.status==='pass');
@@ -1678,14 +1852,14 @@ async function renderTabelPageView(){
       const lastEng=scEng.length?scEng[scEng.length-1].badge:null;
       const card=document.createElement('div');card.className='lux-kid-card';
       const ini=k.name.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
-      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>${avg100!==null?`Ср. (100 б.): <b>${avg100}/100</b> · `:''}${lastEng?`Англ.: <b>${escH(lastEng)}</b> · `:''}Зачётов: <b>${scPF.length}</b></small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
-      <div class="lux-kid-actions"><button type="button" class="btn primary" onclick="openChildTabelModal('${k.id}')">★ Открыть табель</button><button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Балл / Зачёт</button></div>`;
+      card.innerHTML=`<div class="lux-kid-head"><span class="avatar">${ini}</span><div class="rowmain"><strong>${escH(k.name)}</strong><small>${escH(curQ==='all'?'Год':qs[curQ]?.name)}: ${avg100!==null?`Ср.: <b>${avg100}/100</b> · `:''}${lastEng?`Англ.: <b>${escH(lastEng)}</b> · `:''}Зачётов: <b>${scPF.length}</b></small></div><span class="lux-kid-cls">${escH(clsName)}</span></div>
+      <div class="lux-kid-actions"><button type="button" class="btn primary" onclick="openChildTabelModal('${k.id}')">★ Табель (${escH(curQ==='all'?'Год':qs[curQ]?.name)})</button><button type="button" class="btn soft" onclick="openAddScoreModal('${k.id}','',false)">+ Балл / Зачёт</button></div>`;
       grid.appendChild(card);
     });
   };
   main.querySelector('#luxTabelFilterMount').appendChild(makeFilterBar(renderList,true));
   renderList();
-}
+};
 
 function extractGrade(s){
   const m=String(s||'').trim().match(/^([1-4])(?![0-9])|([1-4])\s*кл/i);
@@ -1694,26 +1868,48 @@ function extractGrade(s){
 function sortTargets(list){
   return list.slice().sort((a,b)=>extractGrade(a).localeCompare(extractGrade(b))||a.localeCompare(b,'ru'));
 }
+
+/* Надёжная сборка и обработка меню на всех экранах */
+window.handleTopMenuChange=(val)=>{
+  if(val==='__admin_obs__')window.openAdminObservationsPage('all');
+  else if(val==='__tabel__')window.openTabelPage();
+  else if(val==='__menu__')window.openMenuPage();
+  else if(val==='__password__')window.openPasswordPage();
+  else{
+    window._lcCustomPage=null;
+    if(typeof window.go==='function')window.go(val);
+  }
+};
+
 function buildTopDropdown(){
+  hookNavigationGo();
   const sideNav=document.querySelector('.side .nav');
   const role=getActiveRole();
   if(sideNav&&!sideNav.querySelector('button[data-tabel]')){
-    sideNav.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>{window._lcCustomPage=null}));
     if(role==='admin'){
-      const bObs=document.createElement('button');bObs.dataset.adminobs='1';bObs.textContent='✎ Наблюдения';bObs.onclick=()=>window.openAdminObservationsPage('all');
+      const bObs=document.createElement('button');bObs.dataset.adminobs='1';bObs.textContent='✎ Наблюдения (Сводка)';bObs.onclick=()=>window.openAdminObservationsPage('all');
       sideNav.appendChild(bObs);
     }
-    const b1=document.createElement('button');b1.dataset.tabel='1';b1.textContent='★ Табель успеваемости';b1.onclick=()=>window.openTabelPage();
+    const b1=document.createElement('button');b1.dataset.tabel='1';b1.textContent='★ Табель (по четвертям)';b1.onclick=()=>window.openTabelPage();
     const b2=document.createElement('button');b2.dataset.menu='1';b2.textContent='🍽️ Меню питания';b2.onclick=()=>window.openMenuPage();
     const b3=document.createElement('button');b3.dataset.pass='1';b3.textContent='🔐 Смена пароля';b3.onclick=()=>window.openPasswordPage();
     sideNav.appendChild(b1);sideNav.appendChild(b2);sideNav.appendChild(b3);
+  }
+  if(sideNav){
+    sideNav.querySelectorAll('button').forEach(b=>{
+      if(b.dataset.adminobs)b.classList.toggle('on',window._lcCustomPage==='admin_obs');
+      else if(b.dataset.tabel)b.classList.toggle('on',window._lcCustomPage==='tabel');
+      else if(b.dataset.menu)b.classList.toggle('on',window._lcCustomPage==='menu');
+      else if(b.dataset.pass)b.classList.toggle('on',window._lcCustomPage==='password');
+      else if(window._lcCustomPage)b.classList.remove('on');
+    });
   }
   const navBtns=[...document.querySelectorAll('.side .nav button')];
   if(!navBtns.length)return;
   const seen=new Set(),items=[];
   navBtns.forEach(b=>{
     if(b.dataset.adminobs){items.push({route:'__admin_obs__',label:'✎ Наблюдения (Сводка)',on:window._lcCustomPage==='admin_obs'});return;}
-    if(b.dataset.tabel){items.push({route:'__tabel__',label:'★ Табель успеваемости',on:window._lcCustomPage==='tabel'});return;}
+    if(b.dataset.tabel){items.push({route:'__tabel__',label:'★ Табель (по четвертям)',on:window._lcCustomPage==='tabel'});return;}
     if(b.dataset.menu){items.push({route:'__menu__',label:'🍽️ Меню питания',on:window._lcCustomPage==='menu'});return;}
     if(b.dataset.pass){items.push({route:'__password__',label:'🔐 Смена пароля',on:window._lcCustomPage==='password'});return;}
     const m=(b.getAttribute('onclick')||'').match(/go\(['"]([^'"]+)['"]\)/);
@@ -1728,19 +1924,14 @@ function buildTopDropdown(){
       const r1=document.createElement('div');r1.className='mobiletop-row1';
       children.forEach(c=>r1.appendChild(c));
       const r2=document.createElement('div');r2.className='lux-menu-wrap';
-      r2.innerHTML=`<span>Меню:</span><select class="lux-top-select">${opts}</select>`;
+      r2.innerHTML=`<span>Меню:</span><select class="lux-top-select" onchange="window.handleTopMenuChange(this.value)">${opts}</select>`;
       mtop.appendChild(r1);mtop.appendChild(r2);
-      sel=r2.querySelector('select');
-      sel.onchange=function(){
-        if(this.value==='__admin_obs__')window.openAdminObservationsPage('all');
-        else if(this.value==='__tabel__')window.openTabelPage();
-        else if(this.value==='__menu__')window.openMenuPage();
-        else if(this.value==='__password__')window.openPasswordPage();
-        else{window._lcCustomPage=null;window.go(this.value);}
-      };
-    }else{sel.innerHTML=opts;}
+    }else{
+      sel.innerHTML=opts;
+    }
   }
 }
+
 function makeFilterBar(onUpdate,withSearch=true){
   const bar=document.createElement('div');bar.className='lux-filter-bar';
   const grades=[['all','Все параллели'],['1','1 класс'],['2','2 класс'],['3','3 класс'],['4','4 класс']];
@@ -1788,11 +1979,15 @@ function upgradeTeacherToday(){
     return `<tr>
       <td><span class="lux-lnum">${l.nonCount?'Режим':lNum+' ур.'}</span><span class="lux-ltime">${l.start}–${l.end}</span></td>
       <td><b>${escH(l.target)}</b></td>
-      <td><b>${l.icon} ${escH(l.subj)}</b>${l.topic&&l.topic!=='Урок проведён'?`<div style="font-size:11px;color:var(--muted)">Тема: ${escH(l.topic)}</div>`:''}</td>
+      <td>
+        <b>${l.icon} ${escH(l.subj)}</b>
+        ${l.topic&&l.topic!=='Урок проведён'?`<div class="lux-topic-line"><b>Тема:</b> ${escH(l.topic)}</div>`:''}
+        ${l.hw?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(l.hw)}</div>`:''}
+      </td>
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           ${rightBtn}
-          <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="lessonTopicModal('${l.scheduleId}','${selDate}')">Тема</button>
+          <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="lessonTopicModal('${l.scheduleId}','${selDate}')">✎ Тема / ДЗ</button>
           <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openLesson('${l.scheduleId}')">Дети</button>
           <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="noteModal('${l.scheduleId}')">+ Заметка</button>
         </div>
@@ -1809,7 +2004,7 @@ function upgradeTeacherToday(){
       </div>
       <span class="badge">${fullDateLabel} · ${st.doneHours} из ${st.planHours} ч</span>
     </div>
-    ${st.items.length?`<div class="card"><div class="table"><table><thead><tr><th>№ / Время</th><th>Класс / Группа</th><th>Предмет и тема</th><th>Действия и отметка (1 ч)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></div>`:`<div class="empty">На ${fullDateLabel} занятий нет.</div>`}
+    ${st.items.length?`<div class="card"><div class="table"><table><thead><tr><th>№ / Время</th><th>Класс / Группа</th><th>Предмет, Тема и ДЗ</th><th>Действия и отметка (1 ч)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></div>`:`<div class="empty">На ${fullDateLabel} занятий нет.</div>`}
   `;
 }
 
@@ -1857,13 +2052,20 @@ function upgradeTeacherSchedule(){
       return `<tr>
         <td style="white-space:nowrap"><span class="lux-lnum">${l.nonCount?'Режим':num+' ур.'}</span><span class="lux-ltime">${l.start}–${l.end}</span></td>
         <td><b>${escH(l.target)}</b></td>
-        <td><b>${l.icon} ${escH(l.subj)}</b>${l.topic&&l.topic!=='Урок проведён'?`<div style="font-size:11px;color:var(--muted)">${escH(l.topic)}</div>`:''}</td>
-        <td style="text-align:right;white-space:nowrap">${btn}</td>
+        <td>
+          <b>${l.icon} ${escH(l.subj)}</b>
+          ${l.topic&&l.topic!=='Урок проведён'?`<div class="lux-topic-line"><b>Тема:</b> ${escH(l.topic)}</div>`:''}
+          ${l.hw?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(l.hw)}</div>`:''}
+        </td>
+        <td style="text-align:right;white-space:nowrap">
+          <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px;margin-right:4px" onclick="lessonTopicModal('${l.scheduleId}','${date}')">✎ Тема / ДЗ</button>
+          ${btn}
+        </td>
       </tr>`;
     }).join('');
     html+=`<div class="lux-sched-day">
       <div class="sh"><div><h2>${dName}, ${fmtDateRu(date)}</h2></div><span class="chip ${dayDone===dayPlan&&dayPlan>0?'green':'yellow'}">${dayDone} / ${dayPlan} ч</span></div>
-      <div class="table"><table><thead><tr><th>№ / Время</th><th>Класс</th><th>Предмет</th><th style="text-align:right">Статус урока</th></tr></thead><tbody>${trs}</tbody></table></div>
+      <div class="table"><table><thead><tr><th>№ / Время</th><th>Класс</th><th>Предмет, Тема и ДЗ</th><th style="text-align:right">Тема / Статус</th></tr></thead><tbody>${trs}</tbody></table></div>
     </div>`;
   });
   container.innerHTML=html;
@@ -1872,7 +2074,7 @@ function upgradeTeacherSchedule(){
   });
 }
 
-/* 3. РОДИТЕЛЬ: Таблица расписания + Меню питания + ненавязчивая подсказка о вкладке смены пароля */
+/* 3. РОДИТЕЛЬ: Таблица расписания (показывает Тему, Что задано (ДЗ) и похвалу учителя!) */
 function buildParentDayTableHtml(k,dStr,wd){
   const c=window._lcCache;
   const ls=getCleanChildLessonsForDay(k,wd);
@@ -1890,51 +2092,49 @@ function buildParentDayTableHtml(k,dStr,wd){
     else if(att?.status==='late')attBadge='<span class="chip yellow">Опоздал</span>';
     else if(att?.status==='absent')attBadge='<span class="chip red">Не был</span>';
 
-    const rec=c.records.find(r=>r.schedule_id===l.id&&r.lesson_date===dStr);
+    const rec=findLessonRecordForParent(l.id,dStr);
     const topicText=(rec?.topic&&rec.topic!=='Урок проведён')?rec.topic:'';
+    const hwText=(rec?.note&&!String(rec.note).startsWith('Подтверждено'))?rec.note:'';
     const subjObs=dayObs.filter(o=>o.subject_id===l.subject_id);
-    const praiseHtml=subjObs.map(o=>`<div style="color:var(--green);font-weight:600;margin-top:2px">✦ ${escH(o.note)}</div>`).join('');
+    const praiseHtml=subjObs.map(o=>`<div style="color:var(--green);font-weight:600;margin-top:4px">✦ ${escH(o.note)}</div>`).join('');
 
     return `<tr>
       <td style="white-space:nowrap;width:105px"><span class="lux-lnum">${nonC?'Режим':lNum+' урок'}</span><span class="lux-ltime">${String(l.starts_at).slice(0,5)}–${String(l.ends_at).slice(0,5)}</span></td>
       <td><b>${subjObj?.icon||'📘'} ${escH(subjObj?.name||'Предмет')}</b></td>
       <td style="white-space:nowrap">${attBadge}</td>
-      <td>${topicText?`<div><b>Тема:</b> ${escH(topicText)}</div>`:''}${praiseHtml||(!topicText?'<span style="color:var(--muted);font-size:11.5px">—</span>':'')}</td>
+      <td>
+        ${topicText?`<div class="lux-topic-line"><b>Изучали:</b> ${escH(topicText)}</div>`:''}
+        ${hwText?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(hwText)}</div>`:''}
+        ${praiseHtml}
+        ${!topicText&&!hwText&&!praiseHtml?'<span style="color:var(--muted);font-size:11.5px">—</span>':''}
+      </td>
     </tr>`;
   }).join('');
-  return `<div class="table"><table><thead><tr><th>Урок / Время</th><th>Предмет</th><th>Отметка</th><th>Что делали / Успехи ребёнка</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+  return `<div class="table"><table><thead><tr><th>Урок / Время</th><th>Предмет</th><th>Отметка</th><th>Что изучали / Что задано / Успехи</th></tr></thead><tbody>${trs}</tbody></table></div>`;
 }
 
+window.refreshParentView=()=>{upgradeParentViews()};
 function upgradeParentViews(){
   if(getActiveRole()!=='parent'||!window._lcCache.ready)return;
   const c=window._lcCache;
   const k=getSelectedParentChild();if(!k)return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
 
-  const loginNick=normNick(c.authEmail.split('@')[0]||'');
-  const isPassChanged=(c.authMeta?.is_default_password===false)||(/\[ПАРОЛЬ ИЗМЕНЁН\]/i.test(c.me?.full_name||''))||localStorage.getItem('lc_pass_changed_'+loginNick);
-  if(!isPassChanged&&!document.querySelector('.main .lux-pass-hint')){
-    const hint=document.createElement('div');
-    hint.className='lux-filter-bar lux-pass-hint';
-    hint.innerHTML=`<div style="font-size:12.5px">🔐 У вас сейчас установлен стартовый пароль <b>000000</b>. Вы можете в любой момент сменить его на личный.</div><button type="button" class="btn soft" onclick="openPasswordPage()">Перейти к смене пароля →</button>`;
-    document.querySelector('.main .top')?.after(hint);
-  }
-
   if(h1.startsWith('Сегодня у')){
     const todayStr=isoDate(),wd=new Date().getDay()||1;
     const schedSectionCard=document.querySelector('.main .section.grid.g2 > div:nth-child(2) > .card');
-    if(schedSectionCard&&!schedSectionCard.dataset.upgraded){
-      schedSectionCard.dataset.upgraded='1';
+    if(schedSectionCard){
       schedSectionCard.innerHTML=buildParentDayTableHtml(k,todayStr,wd);
     }
-    if(!document.querySelector('.main .lux-meal-card')){
+    let mealSec=document.querySelector('.main .lux-meal-card');
+    if(!mealSec){
       document.querySelector('.main .herochild')?.after(
         Object.assign(document.createElement('div'),{innerHTML:buildTodayMealCardHtml(todayStr)}).firstElementChild
       );
     }
     let sec=document.querySelector('.main .lux-parent-tabel');
     if(!sec){sec=document.createElement('section');sec.className='section card lux-parent-tabel';document.querySelector('.main')?.appendChild(sec);}
-    sec.innerHTML=buildChildTabelHtml(k.id,false);
+    sec.innerHTML=buildChildTabelHtml(k.id,false,'refreshParentView');
   }
 
   if(h1==='Расписание'){
@@ -1946,7 +2146,7 @@ function upgradeParentViews(){
       else document.querySelector('.main').appendChild(wrap);
     }
     const daysRu=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
-    const mon=getMonday(new Date());
+    const mon=getMonday(new Date(window._lcSelectedDate+'T12:00:00'));
     const dayTabs=[['all','Вся неделя'],...[1,2,3,4,5].map(d=>[daysRu[d],daysRu[d]])];
     let html=`<div class="lux-filter-bar"><div class="lux-grade-pills">${dayTabs.map(([key,label])=>`<button type="button" class="lux-gpill ${window._lcSchedDay===key?'on':''}" data-d="${key}">${label}</button>`).join('')}</div></div>`;
     [1,2,3,4,5].forEach(wd=>{
@@ -1964,11 +2164,11 @@ function upgradeParentViews(){
   if(h1==='Неделя'){
     let sec=document.querySelector('.main .lux-parent-tabel');
     if(!sec){sec=document.createElement('section');sec.className='section card lux-parent-tabel';document.querySelector('.main')?.appendChild(sec);}
-    sec.innerHTML=buildChildTabelHtml(k.id,false);
+    sec.innerHTML=buildChildTabelHtml(k.id,false,'refreshParentView');
   }
 }
 
-/* 4. Фильтрация предметов в окне "+ Наблюдение" + живой ПОИСК + апгрейд Карточки ребёнка */
+/* 4. Фильтрация предметов в окне "+ Наблюдение" + живой ПОИСК */
 function enhanceModalsWithSearchAndFilter(){
   const modal=document.querySelector('.modal');
   if(!modal)return;
@@ -1986,7 +2186,8 @@ function enhanceModalsWithSearchAndFilter(){
       const mySubjIds=new Set(c.schedule.filter(l=>l.active&&l.teacher_id===c.me.id).map(l=>l.subject_id));
       [...subjSel.options].forEach(opt=>{
         const sObj=c.subjects.find(s=>s.id===opt.value);
-        const isRoutine=sObj&&(['circle','breakfast','lunch','snack','extended','break'].includes(sObj.code)||/круг|завтрак|обед|полдник|продлёнка|перемена/i.test(sObj.name));
+        if(!sObj||sObj.code.startsWith('__')){opt.remove();return;}
+        const isRoutine=['circle','breakfast','lunch','snack','extended','break'].includes(sObj.code)||/круг|завтрак|обед|полдник|продлёнка|перемена/i.test(sObj.name);
         if(!isRoutine&&!mySubjIds.has(opt.value))opt.remove();
       });
     }
@@ -2072,12 +2273,13 @@ function upgradeAdminTeachersHours(){
   let totalDoneH=0;
   const tRows=teachers.map(t=>{
     const st=calcTeacherStats(t.id,window._lcFrom,window._lcTo);totalDoneH+=st.doneHours;
-    const safeName=String(t.full_name||'Педагог').replace(/'/g,'');
-    return `<tr><td><b>${escH(t.full_name)}</b></td><td><span class="chip ${st.doneCount?'green':''}">${st.doneCount}/${st.planCount} ур.</span></td><td><b style="color:var(--green)">${fmtHoursCount(st.doneHours)}</b></td><td>${fmtHoursCount(st.planHours)}</td><td><button type="button" class="btn soft" onclick="openTeacherHoursModal('${t.id}','${safeName}')">По датам ▾</button></td></tr>`;
+    const {cleanName,login}=parseTeacherDisplay(t);
+    const safeName=cleanName.replace(/'/g,'');
+    return `<tr><td><b>${escH(cleanName)}</b><div style="font-size:11px;color:var(--green)">${login?'@'+escH(login):'логин не задан'}</div></td><td><span class="chip ${st.doneCount?'green':''}">${st.doneCount}/${st.planCount} ур.</span></td><td><b style="color:var(--green)">${fmtHoursCount(st.doneHours)}</b></td><td>${fmtHoursCount(st.planHours)}</td><td style="white-space:nowrap"><button type="button" class="btn ghost" onclick="openTeacherLoginModal('${t.id}')">🔑 Логин</button> <button type="button" class="btn soft" onclick="openTeacherHoursModal('${t.id}','${safeName}')">По датам ▾</button></td></tr>`;
   }).join('');
-  box.innerHTML=`<div class="sh"><div><h2>📊 База часов работы педагогов</h2><p>1 урок = 1 час · «Круг» и режим не в счёт</p></div><span class="badge">Всего: ${fmtHoursCount(totalDoneH)}</span></div>
+  box.innerHTML=`<div class="sh"><div><h2>📊 База часов и логины педагогов</h2><p>1 урок = 1 час · «Круг» и режим не в счёт</p></div><span class="badge">Всего: ${fmtHoursCount(totalDoneH)}</span></div>
   <div class="lux-filter-bar"><div class="lux-grade-pills"><button type="button" class="lux-gpill ${window._lcPeriod==='week'?'on':''}" data-p="week">Эта неделя</button><button type="button" class="lux-gpill ${window._lcPeriod==='prev'?'on':''}" data-p="prev">Прошлая</button><button type="button" class="lux-gpill ${window._lcPeriod==='month'?'on':''}" data-p="month">Месяц</button></div><div style="display:flex;gap:6px;align-items:center"><input type="date" id="luxFrom" value="${window._lcFrom}" style="width:auto;padding:5px 8px"><span>—</span><input type="date" id="luxTo" value="${window._lcTo}" style="width:auto;padding:5px 8px"></div></div>
-  <div class="table"><table><thead><tr><th>Педагог</th><th>Уроков</th><th>Часы</th><th>План</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>`;
+  <div class="table"><table><thead><tr><th>Педагог и логин</th><th>Уроков</th><th>Часы</th><th>План</th><th></th></tr></thead><tbody>${tRows}</tbody></table></div>`;
   box.querySelectorAll('.lux-gpill[data-p]').forEach(b=>b.onclick=()=>setPreset(b.dataset.p));
   box.querySelector('#luxFrom').onchange=e=>{window._lcPeriod='custom';window._lcFrom=e.target.value;upgradeAdminTeachersHours()};
   box.querySelector('#luxTo').onchange=e=>{window._lcPeriod='custom';window._lcTo=e.target.value;upgradeAdminTeachersHours()};
@@ -2130,7 +2332,7 @@ function upgradeAdminSchedule(){
           if(!cellLs.length)return `<td></td>`;
           return `<td>${cellLs.map(l=>{
             const statusPill=l.nonCount?'':`<button type="button" class="lux-done-btn ${l.done?'is-done':''}" style="margin-top:4px;padding:3px 8px;font-size:10px" onclick="toggleLessonDone('${l.scheduleId}','${dStr}','${l.teacherId}',event)">${l.done?`✓ ${fmtShortDM(dStr)}`:`○ ${fmtShortDM(dStr)}`}</button>`;
-            return `<div class="lux-cell-item" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon} ${escH(l.subj)}</strong><small>${escH(l.teacherName)}</small>${statusPill}<button type="button" class="lux-cell-del" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`;
+            return `<div class="lux-cell-item" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon} ${escH(l.subj)}</strong><small>${escH(l.teacherName)}</small>${l.topic&&l.topic!=='Урок проведён'?`<small style="color:var(--green)">Тема: ${escH(l.topic)}</small>`:''}${l.hw?`<small style="color:var(--orange)">ДЗ: ${escH(l.hw)}</small>`:''}${statusPill}<button type="button" class="lux-cell-del" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`;
           }).join('')}</td>`;
         }).join('');
         rowsHtml+=`<tr><td class="lux-time-col">${badge}<span class="lux-ltime">${slot}</span></td>${tds}</tr>`;
@@ -2285,6 +2487,7 @@ function upgradeTablesAndLists(){
 }
 
 async function onRender(){
+  hookNavigationGo();
   interceptLoginForm();
   await syncCache(false);
   buildTopDropdown();
@@ -2294,6 +2497,7 @@ async function onRender(){
   if(window._lcCustomPage==='menu'){renderMenuPageView();return;}
   if(window._lcCustomPage==='password'){renderPasswordPageView();return;}
   cleanObservationFeeds();
+  upgradeAdminDashboardTeachers();
   upgradeTablesAndLists();
   upgradeObservationEditButtons();
   upgradeAdminSchedule();
@@ -2303,6 +2507,7 @@ async function onRender(){
   upgradeParentViews();
 }
 window.addEventListener('DOMContentLoaded',async()=>{
+  hookNavigationGo();
   interceptLoginForm();
   await syncCache(true);
   const app=document.getElementById('app');
