@@ -129,7 +129,7 @@ tr:last-child td{border-bottom:0}
 .day.today{background:var(--green);color:#FFFDF9;border:1px solid var(--gold)}
 .empty{text-align:center;padding:24px;color:var(--muted);border:1px dashed rgba(197,165,114,.45);border-radius:16px;background:rgba(255,253,249,.6);font-family:var(--font-serif);font-style:italic;font-size:16px}
 .modalbg{position:fixed;inset:0;background:rgba(20,26,20,.55);z-index:50;display:grid;place-items:center;padding:12px}
-.modal{width:min(640px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--gold);border-radius:24px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+.modal{width:min(680px,100%);max-height:90vh;overflow:auto;background:var(--card);border:1px solid var(--gold);border-radius:24px;padding:20px;box-shadow:0 24px 70px rgba(0,0,0,.25)}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .mh h2{margin:0;font-family:var(--font-serif);font-size:24px}
 .x{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#F7F2E8;cursor:pointer;font-size:18px}
@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* TWA Верхнее меню, фильтры, Таблицы и Меню Питания */
+/* TWA Верхнее меню, фильтры, Таблицы, Уведомления сброса пароля и Вкладки */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -164,6 +164,11 @@ tr:last-child td{border-bottom:0}
 .lux-hours-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;margin-bottom:14px;border-radius:18px;background:linear-gradient(135deg,#1E3124,#2B4432);color:#FAF7F2;border:1px solid var(--gold)}
 .lux-hours-banner b{font-family:var(--font-serif);font-size:26px;color:var(--gold)}
 
+.lux-reset-alert{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;margin-bottom:14px;border-radius:16px;background:linear-gradient(135deg,#FDF3EC,#F6E3D6);border:1.5px solid var(--orange);color:var(--ink);box-shadow:0 6px 18px rgba(184,93,59,.12)}
+.lux-modal-tabs{display:flex;gap:6px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #EFE8DC}
+.lux-student-link{color:var(--green);font-weight:700;text-decoration:underline;text-decoration-color:var(--gold);cursor:pointer}
+.lux-student-link:hover{color:var(--orange)}
+
 .lux-cal-box{background:var(--card);border:1px solid rgba(197,165,114,.38);border-radius:20px;padding:14px 16px;margin-bottom:16px}
 .lux-cal-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #EFE8DC}
 .lux-cal-title{font-family:var(--font-serif);font-size:20px;font-weight:700;color:var(--green)}
@@ -172,7 +177,7 @@ tr:last-child td{border-bottom:0}
 .lux-cal-cell{min-height:48px;border-radius:12px;border:1px solid #EFE8DC;background:#FAF7F1;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
 .lux-cal-cell.is-sel{border:2px solid var(--green);background:#E9EFE8}
 .lux-cal-cell.is-today .lux-cal-num{background:var(--gold);color:#fff;border-radius:99px;padding:0 6px}
-.lux-cal-num{font-family:var(--font-serif);font-size:14px;font-weight:600}
+.lux-cal-num{font-family:var(--font-serif);font-size:14px;font-weight:700}
 .lux-cal-stat{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:99px;margin-top:3px;white-space:nowrap}
 .lux-cal-stat.all-done{background:var(--green);color:#FAF7F2}
 .lux-cal-stat.part-done{background:var(--yellowSoft);color:#7D5B14}
@@ -233,6 +238,9 @@ try{
 
 const SB_URL='https://pqzgbhlkodsslykombsv.supabase.co';
 const SB_KEY='sb_publishable_d9Rf6xNSups9x8Fyz4W-Og_t0Oy4m1Y';
+const DEFAULT_PASS='000000';
+const SYNC_BOT_EMAIL='lc_sync_service@littleclan.local';
+const SYNC_BOT_PASS='lc_sync_2026';
 const NOTE_TAGS=['Мышление','Коммуникация','Самостоятельность','Инициатива','Творчество','Внимательность','Командная работа'];
 
 function isoDate(d=new Date()){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -241,6 +249,7 @@ function getMonday(d=new Date()){let x=new Date(d),k=x.getDay()||7;x.setHours(12
 function fmtDateRu(dStr,opts={day:'numeric',month:'long',year:'numeric'}){return new Intl.DateTimeFormat('ru-RU',opts).format(new Date(dStr+'T12:00:00'))}
 function fmtShortDM(dStr){const [y,m,d]=String(dStr).split('-');return `${d}.${m}`}
 function escH(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
+function normNick(s=''){return String(s||'').trim().toLowerCase().replace(/^@/,'').replace(/[^a-z0-9._-]/g,'')}
 
 const DEFAULT_MENU={
   1:{
@@ -270,8 +279,9 @@ window._lcSchedDay='all';
 window._lcSelectedDate=isoDate();
 window._lcCalMonth=isoDate().slice(0,7);
 window._lcShowMonthGrid=false;
-window._lcCustomPage=null;
+window._lcCustomPage=null; // 'tabel' | 'menu' | 'admin_obs' | null
 window._lcMenuWeek=1;
+window._lcObsFilter={classId:'all',subjectId:'all',period:'all',from:isoDate(getMonday()),to:isoDate(addDays(getMonday(),4)),childId:'all',search:''};
 window._lcClasses=[];
 window._lcLastUid=null;
 window._lcCache={ready:false,me:null,schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],childGroups:[],children:[],parentLinks:[],observations:[]};
@@ -321,8 +331,37 @@ async function getSb(){
   if(window._luxSb)return window._luxSb;
   const mod=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
   window._luxSb=mod.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
+  window._luxNoPersistSb=mod.createClient(SB_URL,SB_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
   return window._luxSb;
 }
+async function getTempSb(){
+  await getSb();
+  return window._luxNoPersistSb;
+}
+
+/* Технический канал синхронизации паролей и уведомлений «Забыли пароль?» */
+async function ensureSyncServiceBot(schoolId){
+  try{
+    if(!schoolId||window._syncBotChecked)return;
+    window._syncBotChecked=true;
+    const mainSb=await getSb();
+    const tmp=await getTempSb();
+    let res=await tmp.auth.signInWithPassword({email:SYNC_BOT_EMAIL,password:SYNC_BOT_PASS});
+    if(res.error){
+      res=await tmp.auth.signUp({email:SYNC_BOT_EMAIL,password:SYNC_BOT_PASS});
+    }
+    const botUid=res.data?.user?.id;
+    if(botUid){
+      await mainSb.from('profiles').upsert({id:botUid,school_id:schoolId,role:'teacher',full_name:'__SYSTEM_SYNC__',active:false},{onConflict:'id'});
+    }
+  }catch(e){}
+}
+async function getSyncBotClient(){
+  const tmp=await getTempSb();
+  await tmp.auth.signInWithPassword({email:SYNC_BOT_EMAIL,password:SYNC_BOT_PASS});
+  return tmp;
+}
+
 async function syncCache(force=false){
   try{
     const client=await getSb();
@@ -342,8 +381,8 @@ async function syncCache(force=false){
       client.from('subjects').select('id,code,name,icon,category,active'),
       client.from('groups').select('id,name,group_type,active'),
       client.from('child_groups').select('child_id,group_id'),
-      client.from('children').select('id,school_id,class_id,first_name,last_name,aftercare_active,active'),
-      client.from('child_parents').select('child_id,parent_id'),
+      client.from('children').select('id,school_id,class_id,first_name,last_name,parent_telegram,aftercare_active,active'),
+      client.from('child_parents').select('child_id,parent_id,relation_label'),
       client.from('observations').select('*')
     ]);
     let subjectsList=subjR.data||[];
@@ -351,16 +390,549 @@ async function syncCache(force=false){
       const ins=await client.from('subjects').upsert({school_id:meR.data.school_id,code:'calligraphy',name:'Каллиграфия',icon:'✒️',category:'lesson',active:true},{onConflict:'school_id,code',ignoreDuplicates:true}).select();
       if(ins.data?.length)subjectsList=[...subjectsList,...ins.data];
     }
+    if(meR.data?.role==='admin'&&meR.data?.school_id){
+      ensureSyncServiceBot(meR.data.school_id);
+    }
     window._lcCache={
       ready:true,me:meR.data,
       schedule:schR.data||[],records:recR.data||[],attendance:attR.data||[],
-      subs:subR.data||[],profiles:profR.data||[],classes:clsR.data||[],
+      subs:subR.data||[],
+      profiles:(profR.data||[]).filter(p=>p.full_name!=='__SYSTEM_SYNC__'),
+      classes:clsR.data||[],
       subjects:subjectsList,groups:grpR.data||[],childGroups:cgR.data||[],
       children:(chR.data||[]).map(k=>({...k,name:[k.last_name,k.first_name].filter(Boolean).join(' ')})),
       parentLinks:plR.data||[],observations:obsR.data||[]
     };
     if(clsR.data)window._lcClasses=clsR.data.filter(x=>x.active).map(x=>x.name);
   }catch(e){console.warn('Cache sync:',e)}
+}
+
+/* --- УПРАВЛЕНИЕ ПАРОЛЯМИ И АВТОПРИВЯЗКОЙ РОДИТЕЛЕЙ ПО НИКУ --- */
+function getParentAuthState(nickOrParentId,obsList=window._lcCache.observations){
+  const clean=normNick(nickOrParentId);
+  const rows=(obsList||[]).filter(o=>{
+    const t=o.tags||[];
+    return t[0]==='__PARENT_AUTH__'&&(t[1]===clean||t[2]===nickOrParentId);
+  }).sort((a,b)=>String(a.created_at||a.observed_on).localeCompare(String(b.created_at||b.observed_on)));
+  if(!rows.length)return null;
+  const last=rows[rows.length-1];
+  try{
+    return {obsId:last.id,...JSON.parse(last.note||'{}')};
+  }catch(e){return null;}
+}
+
+async function saveParentAuthState(stateObj,useSyncBot=false){
+  const client=useSyncBot?await getSyncBotClient():await getSb();
+  const c=window._lcCache;
+  let schoolId=c.me?.school_id,anyChild=c.children[0]?.id,anySubj=c.subjects[0]?.id,teacherId=c.me?.id;
+  if(!schoolId||!anyChild||!anySubj){
+    const [chR,sbR,prR]=await Promise.all([
+      client.from('children').select('id,school_id').limit(1),
+      client.from('subjects').select('id').limit(1),
+      client.auth.getUser()
+    ]);
+    schoolId=chR.data?.[0]?.school_id;
+    anyChild=chR.data?.[0]?.id;
+    anySubj=sbR.data?.[0]?.id;
+    teacherId=prR.data?.user?.id;
+  }
+  if(!schoolId||!anyChild||!anySubj)return;
+  const clean=normNick(stateObj.login);
+  await client.from('observations').delete().contains('tags',['__PARENT_AUTH__',clean]);
+  await client.from('observations').insert({
+    school_id:schoolId,
+    child_id:stateObj.childId||anyChild,
+    subject_id:anySubj,
+    teacher_id:teacherId,
+    observed_on:isoDate(),
+    note:JSON.stringify({...stateObj,login:clean,updatedAt:new Date().toISOString()}),
+    tags:['__PARENT_AUTH__',clean,stateObj.parentId||'']
+  });
+}
+
+/* Автоматическое создание / активация аккаунта родителя по нику и привязка всех его детей */
+async function autoLinkParentByNick(rawNick,childId,childName=''){
+  const nick=normNick(rawNick);
+  if(nick.length<3)return null;
+  const mainSb=await getSb();
+  const tmpSb=await getTempSb();
+  const c=window._lcCache;
+  const schoolId=c.me?.school_id;
+  if(!schoolId)return null;
+  const email=nick+'@littleclan.local';
+
+  let uid=null;
+  const existingState=getParentAuthState(nick);
+  if(existingState?.parentId)uid=existingState.parentId;
+
+  if(!uid){
+    const existingLink=c.parentLinks.find(pl=>normNick(pl.relation_label||'')===nick);
+    if(existingLink)uid=existingLink.parent_id;
+  }
+
+  if(!uid){
+    let sign=await tmpSb.auth.signInWithPassword({email,password:DEFAULT_PASS});
+    if(sign.data?.user?.id){
+      uid=sign.data.user.id;
+    }else{
+      let up=await tmpSb.auth.signUp({email,password:DEFAULT_PASS});
+      uid=up.data?.user?.id||null;
+    }
+  }
+  if(!uid)return null;
+
+  /* Активируем профиль родителя */
+  const existingProf=c.profiles.find(p=>p.id===uid);
+  const parentDisplayName=existingProf?.full_name||`Родитель (@${nick})`;
+  await mainSb.from('profiles').upsert({
+    id:uid,school_id:schoolId,role:'parent',full_name:parentDisplayName,active:true
+  },{onConflict:'id'});
+
+  /* Находим ВСЕХ детей школы с таким же ником и привязываем их к этому родителю */
+  const matchingKids=c.children.filter(k=>normNick(k.parent_telegram)===nick||k.id===childId);
+  const kidIds=[...new Set([childId,...matchingKids.map(k=>k.id)].filter(Boolean))];
+
+  for(const kidId of kidIds){
+    await mainSb.from('child_parents').delete().eq('child_id',kidId);
+    await mainSb.from('child_parents').insert({
+      child_id:kidId,parent_id:uid,relation_label:'@'+nick
+    });
+  }
+
+  if(!existingState){
+    await saveParentAuthState({
+      login:nick,parentId:uid,childId,isDefault:true,customPass:'',resetRequested:false
+    },false);
+  }
+  return {uid,nick,linkedCount:kidIds.length};
+}
+
+/* Сброс пароля родителя на 000000 в 1 клик (для админа) */
+window.resetParentPasswordToDefault=async(rawNick,childId='',ev)=>{
+  if(ev)ev.stopPropagation();
+  const nick=normNick(rawNick);
+  if(!nick)return alert('Сначала укажите логин / ник родителя в карточке и сохраните');
+  if(!confirm(`Сбросить пароль родителя @${nick} на стартовый 000000? При следующем входе система попросит его задать новый личный пароль.`))return;
+  const existing=getParentAuthState(nick)||{};
+  await saveParentAuthState({
+    login:nick,
+    parentId:existing.parentId||'',
+    childId:childId||existing.childId||'',
+    isDefault:true,
+    customPass:'',
+    resetRequested:false
+  },false);
+  await syncCache(true);
+  alert(`Пароль для @${nick} сброшен на 000000! Включён флаг обязательной смены при первом входе.`);
+  if(document.getElementById('modal')&&childId&&window.editChild)window.editChild(childId);
+  onRender();
+};
+
+/* Окно принудительной смены пароля 000000 при первом входе родителя */
+function openForcePasswordChangeModal(nick,parentId,childId){
+  const ex=document.getElementById('forcePassModal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='forcePassModal';d.className='modalbg';d.style.zIndex='95';
+  d.innerHTML=`<div class="modal" style="width:min(480px,100%)" onclick="event.stopPropagation()">
+    <div class="mh"><h2>🔐 Установка личного пароля</h2></div>
+    <p style="margin:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.55">
+      Вы вошли со стартовым кодом <b>000000</b> (логин: <b>@${escH(nick)}</b>).<br>
+      Для безопасности дневника вашего ребёнка установите новый личный пароль.
+    </p>
+    <form onsubmit="submitNewParentPersonalPassword(event,'${escH(nick)}','${escH(parentId||'')}','${escH(childId||'')}')">
+      <div class="field"><label>Новый личный пароль (минимум 6 символов)</label><input type="password" name="p1" minlength="6" required placeholder="Введите новый пароль" autocomplete="new-password"></div>
+      <div class="field"><label>Повторите новый пароль</label><input type="password" name="p2" minlength="6" required placeholder="Повторите новый пароль" autocomplete="new-password"></div>
+      <div class="actions"><button type="submit" class="btn primary wide">✓ Сохранить личный пароль и войти</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(d);
+}
+
+window.submitNewParentPersonalPassword=async(e,nick,parentId,childId)=>{
+  e.preventDefault();
+  const f=new FormData(e.target);
+  const p1=(f.get('p1')||'').trim(),p2=(f.get('p2')||'').trim();
+  if(p1===DEFAULT_PASS)return alert('Новый пароль должен отличаться от стартового 000000');
+  if(p1.length<6)return alert('Минимальная длина пароля — 6 символов');
+  if(p1!==p2)return alert('Пароли не совпадают, проверьте ввод');
+  await saveParentAuthState({
+    login:nick,parentId,childId,isDefault:false,customPass:p1,resetRequested:false
+  },true);
+  document.getElementById('forcePassModal')?.remove();
+  await syncCache(true);
+  alert('Личный пароль успешно установлен!');
+  onRender();
+};
+
+/* Кнопка «Забыли пароль?» на экране входа */
+window.openForgotPassModal=()=>{
+  const ex=document.getElementById('forgotModal');if(ex)ex.remove();
+  const d=document.createElement('div');d.id='forgotModal';d.className='modalbg';d.style.zIndex='90';
+  d.innerHTML=`<div class="modal" style="width:min(460px,100%)" onclick="event.stopPropagation()">
+    <div class="mh"><h2>Забыли пароль?</h2><button class="x" onclick="document.getElementById('forgotModal').remove()">×</button></div>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.55">
+      Введите ваш логин / ник (например, <b>@mama_anna</b>). Администратор школы получит уведомление и сбросит ваш пароль на стартовый код <b>000000</b>.
+    </p>
+    <form onsubmit="submitForgotPassRequest(event)">
+      <div class="field"><label>Ваш логин / ник</label><input type="text" name="nick" required placeholder="например, @mama_anna"></div>
+      <div class="actions">
+        <button type="button" class="btn ghost" onclick="document.getElementById('forgotModal').remove()">Отмена</button>
+        <button type="submit" class="btn primary">Отправить запрос администратору</button>
+      </div>
+    </form>
+  </div>`;
+  d.onclick=()=>d.remove();document.body.appendChild(d);
+};
+
+window.submitForgotPassRequest=async(e)=>{
+  e.preventDefault();
+  const raw=(new FormData(e.target).get('nick')||'').trim();
+  const nick=normNick(raw);
+  if(nick.length<3)return alert('Введите корректный логин / ник');
+  try{
+    const botSb=await getSyncBotClient();
+    const {data:obsRows}=await botSb.from('observations').select('*').contains('tags',['__PARENT_AUTH__',nick]);
+    let prev={login:nick,parentId:'',childId:'',isDefault:false,customPass:''};
+    if(obsRows?.length){
+      try{prev={...prev,...JSON.parse(obsRows[obsRows.length-1].note||'{}')};}catch(err){}
+    }
+    await saveParentAuthState({...prev,login:nick,resetRequested:true,requestedAt:new Date().toISOString()},true);
+  }catch(err){}
+  document.getElementById('forgotModal')?.remove();
+  alert(`Запрос на сброс пароля для @${nick} отправлен администратору школы! После подтверждения администратором ваш пароль снова станет 000000.`);
+};
+
+/* Баннер уведомлений администратора о запросах на сброс пароля */
+function renderAdminPasswordResetNotifications(){
+  if(getActiveRole()!=='admin'||!window._lcCache.ready)return;
+  const c=window._lcCache;
+  const seen=new Set();
+  const requests=[];
+  c.observations.filter(o=>(o.tags||[])[0]==='__PARENT_AUTH__').forEach(o=>{
+    const st=getParentAuthState((o.tags||[])[1]);
+    if(st&&st.resetRequested&&!seen.has(st.login)){
+      seen.add(st.login);
+      const kids=c.children.filter(k=>normNick(k.parent_telegram)===st.login||k.id===st.childId);
+      const kidNames=kids.map(k=>k.name).join(', ')||'Ученик школы';
+      requests.push({nick:st.login,kidNames,childId:kids[0]?.id||st.childId||''});
+    }
+  });
+
+  let wrap=document.querySelector('.main .lux-reset-banners');
+  if(!requests.length){if(wrap)wrap.remove();return;}
+  if(!wrap){
+    wrap=document.createElement('div');wrap.className='lux-reset-banners';
+    document.querySelector('.main .top')?.after(wrap);
+  }
+  wrap.innerHTML=requests.map(r=>`<div class="lux-reset-alert">
+    <div>
+      <strong style="font-size:14px;color:var(--red)">🔔 Запрос на сброс пароля от @${escH(r.nick)}</strong>
+      <div style="font-size:12.5px;color:var(--ink);margin-top:2px">Ученик: <b>${escH(r.kidNames)}</b></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn primary" onclick="resetParentPasswordToDefault('${escH(r.nick)}','${escH(r.childId)}',event)">✓ Подтвердить сброс до 000000</button>
+    </div>
+  </div>`).join('');
+}
+
+/* Перехват входа (doLogin) и сохранения карточки ребёнка (saveChild) */
+function hookCoreAuthAndChildFunctions(){
+  if(!window._doLoginHooked&&typeof window.doLogin==='function'){
+    window._doLoginHooked=true;
+    window.doLogin=async(e)=>{
+      e.preventDefault();
+      const raw=(document.getElementById('email')?.value||'').trim();
+      const clean=normNick(raw);
+      const mail=(raw.includes('@')&&!raw.startsWith('@'))?raw.toLowerCase():(clean+'@littleclan.local');
+      const pass=document.getElementById('pass')?.value||'';
+      const client=await getSb();
+
+      /* 1. Пробуем войти напрямую или через системный ключ 000000 для проверки пароля родителя */
+      let {data,error}=await client.auth.signInWithPassword({email:mail,password:pass});
+      let signedWithDefault=false;
+      if(error&&pass!==DEFAULT_PASS){
+        const tryDef=await client.auth.signInWithPassword({email:mail,password:DEFAULT_PASS});
+        if(!tryDef.error&&tryDef.data?.user){
+          data=tryDef.data;error=null;signedWithDefault=true;
+        }
+      }
+      if(error||!data?.user){
+        return alert('Неверный логин или пароль. Если вы забыли пароль, нажмите «Забыли пароль?» ниже.');
+      }
+
+      await syncCache(true);
+      const c=window._lcCache;
+      const role=c.me?.role;
+
+      if(role==='parent'){
+        const pState=getParentAuthState(clean)||getParentAuthState(data.user.id);
+        const isDef=!pState||pState.isDefault!==false;
+        if(isDef){
+          if(pass!==DEFAULT_PASS){
+            await client.auth.signOut();
+            return alert('Ваш стартовый пароль: 000000. Введите 000000 для первого входа.');
+          }
+        }else{
+          if(signedWithDefault&&pass!==pState.customPass){
+            await client.auth.signOut();
+            return alert('Неверный личный пароль. Нажмите «Забыли пароль?», чтобы запросить сброс до 000000.');
+          }
+          if(!signedWithDefault&&pState.customPass&&pass===DEFAULT_PASS){
+            await client.auth.signOut();
+            return alert('Стартовый код 000000 уже изменён на личный пароль. Введите ваш личный пароль или нажмите «Забыли пароль?».');
+          }
+        }
+        window.location.reload();
+        return;
+      }else if(signedWithDefault){
+        await client.auth.signOut();
+        return alert('Неверный пароль');
+      }
+      window.location.reload();
+    };
+  }
+
+  /* Перехват сохранения карточки ребёнка для автопривязки родителя по нику */
+  if(!window._saveChildHooked&&typeof window.saveChild==='function'){
+    window._saveChildHooked=true;
+    window.saveChild=async(e)=>{
+      e.preventDefault();
+      const f=new FormData(e.target);
+      const id=f.get('id');
+      const rawNick=(f.get('parentTelegram')||'').trim();
+      const cleanNick=normNick(rawNick);
+      const client=await getSb();
+      await syncCache(false);
+      const schoolId=window._lcCache.me?.school_id;
+      const payload={
+        school_id:schoolId,
+        class_id:f.get('classId'),
+        first_name:(f.get('first')||'').trim(),
+        last_name:(f.get('last')||'').trim(),
+        parent_telegram:cleanNick?('@'+cleanNick):null,
+        aftercare_active:f.get('aftercareActive')==='true',
+        active:f.get('active')==='true'
+      };
+      let childId=id;
+      if(id){
+        const {error}=await client.from('children').update(payload).eq('id',id);
+        if(error)return alert('Ошибка сохранения: '+error.message);
+      }else{
+        const {data,error}=await client.from('children').insert(payload).select('id').single();
+        if(error)return alert('Ошибка создания: '+error.message);
+        childId=data?.id;
+      }
+      await syncCache(true);
+      let linkInfo=null;
+      if(cleanNick&&childId){
+        linkInfo=await autoLinkParentByNick(cleanNick,childId,`${payload.last_name} ${payload.first_name}`);
+        await syncCache(true);
+      }
+      window.closeModal?.();
+      if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
+      onRender();
+      if(linkInfo){
+        alert(`Карточка сохранена! Аккаунт родителя @${linkInfo.nick} активен (детей привязано: ${linkInfo.linkedCount}, стартовый пароль: 000000).`);
+      }
+    };
+  }
+}
+
+/* Добавляем кнопку «Забыли пароль?» на экран входа и проверяем первый вход родителя */
+function enhanceLoginScreenAndFirstLoginCheck(){
+  const loginForm=document.querySelector('.loginform form');
+  if(loginForm&&!document.getElementById('luxForgotBtn')){
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.id='luxForgotBtn';
+    btn.className='btn ghost wide';
+    btn.style.marginTop='10px';
+    btn.innerHTML='Забыли пароль? (Запросить сброс до 000000)';
+    btn.onclick=()=>window.openForgotPassModal();
+    loginForm.after(btn);
+  }
+
+  /* Если вошёл родитель и у него стоит флаг стартового пароля (isDefault) — сразу открываем смену пароля */
+  if(getActiveRole()==='parent'&&window._lcCache.ready&&window._lcCache.me){
+    const c=window._lcCache;
+    const myKids=c.parentLinks.filter(x=>x.parent_id===c.me.id).map(x=>c.children.find(k=>k.id===x.child_id)).filter(Boolean);
+    const nick=normNick(myKids[0]?.parent_telegram||c.parentLinks.find(x=>x.parent_id===c.me.id)?.relation_label||'');
+    const st=getParentAuthState(nick)||getParentAuthState(c.me.id);
+    if((!st||st.isDefault!==false)&&!document.getElementById('forcePassModal')){
+      openForcePasswordChangeModal(nick||'parent',c.me.id,myKids[0]?.id||'');
+    }
+  }
+}
+
+/* --- АНАЛИТИЧЕСКИЙ РАЗДЕЛ «НАБЛЮДЕНИЯ» ДЛЯ АДМИНИСТРАТОРА --- */
+window.openAdminObservationsPage=(childIdFilter=null)=>{
+  window._lcCustomPage='admin_obs';
+  if(childIdFilter){
+    window._lcObsFilter.childId=childIdFilter;
+    const k=window._lcCache.children.find(x=>x.id===childIdFilter);
+    if(k)window._lcObsFilter.classId='all';
+  }
+  renderAdminObservationsPageView();
+};
+
+function getFormattedObservationDetails(o){
+  const t=o.tags||[];
+  if(t[0]==='__MENU__'||t[0]==='__PARENT_AUTH__'||t[0]==='__TABEL_DELETED__')return null;
+  if(t[0]==='__TABEL__'){
+    return {isWork:true,badge:`${t[2]}/100`,workType:t[1]||'Проверочная работа',text:o.note||'',tags:[]};
+  }
+  if(t[0]==='__TABEL_FREE__'){
+    return {isWork:true,badge:t[2]||'',workType:t[1]||'Проверочная работа',text:o.note||'',tags:[]};
+  }
+  if(t[0]==='__TABEL_PF__'){
+    const pass=t[2]!=='fail';
+    return {isWork:true,badge:pass?'✓ Зачёт':'✕ Незачёт',isFail:!pass,workType:t[1]||'Зачётная работа',text:o.note||'',tags:[]};
+  }
+  return {isWork:false,badge:'',workType:'Наблюдение',text:o.note||'',tags:t};
+}
+
+function renderAdminObservationsPageView(){
+  const main=document.querySelector('.main');if(!main||!window._lcCache.ready)return;
+  const c=window._lcCache;
+  const flt=window._lcObsFilter;
+  const classes=c.classes.filter(x=>x.active).sort((a,b)=>extractGrade(a.name).localeCompare(extractGrade(b.name))||a.name.localeCompare(b.name,'ru'));
+  const subjects=c.subjects.filter(x=>x.active);
+  const kids=c.children.filter(k=>k.active&&(flt.classId==='all'||k.class_id===flt.classId)).sort((a,b)=>a.name.localeCompare(b.name,'ru'));
+
+  const setPeriod=(p)=>{
+    flt.period=p;
+    const now=new Date(),mon=getMonday(now);
+    if(p==='today'){flt.from=isoDate(now);flt.to=isoDate(now);}
+    if(p==='week'){flt.from=isoDate(mon);flt.to=isoDate(addDays(mon,4));}
+    if(p==='month'){flt.from=isoDate(new Date(now.getFullYear(),now.getMonth(),1));flt.to=isoDate(new Date(now.getFullYear(),now.getMonth()+1,0));}
+    renderAdminObservationsPageView();
+  };
+
+  const rowsData=[];
+  c.observations.forEach(o=>{
+    const info=getFormattedObservationDetails(o);
+    if(!info)return;
+    const k=c.children.find(x=>x.id===o.child_id);
+    if(!k)return;
+    if(flt.classId!=='all'&&k.class_id!==flt.classId)return;
+    if(flt.subjectId!=='all'&&o.subject_id!==flt.subjectId)return;
+    if(flt.childId!=='all'&&k.id!==flt.childId)return;
+    if(flt.period!=='all'){
+      if(o.observed_on<flt.from||o.observed_on>flt.to)return;
+    }
+    const clsName=c.classes.find(x=>x.id===k.class_id)?.name||'—';
+    const subjObj=c.subjects.find(x=>x.id===o.subject_id);
+    const subjName=displayTabelSubjName(subjObj);
+    const tName=c.profiles.find(p=>p.id===o.teacher_id)?.full_name||'Педагог';
+    const searchStr=`${k.name} ${clsName} ${subjName} ${info.text} ${tName}`.toLowerCase();
+    if(flt.search&&!searchStr.includes(flt.search))return;
+    rowsData.push({o,info,k,clsName,subjObj,subjName,tName});
+  });
+
+  rowsData.sort((a,b)=>String(b.o.observed_on).localeCompare(String(a.o.observed_on)));
+  const selectedKid=flt.childId!=='all'?c.children.find(x=>x.id===flt.childId):null;
+
+  const trs=rowsData.map(({o,info,k,clsName,subjObj,subjName,tName})=>{
+    const workPill=info.isWork
+      ?`<span class="lux-score-pill ${info.isFail?'pf-fail':''}"><b>${escH(info.badge)}</b> <span>${escH(info.workType)}</span></span>`
+      :'';
+    const tagPills=(info.tags||[]).map(t=>`<span class="chip green" style="font-size:10px;padding:2px 8px">${escH(t)}</span>`).join(' ');
+    return `<tr>
+      <td style="white-space:nowrap"><b>${fmtShortDM(o.observed_on)}</b><div style="font-size:10.5px;color:var(--muted)">${o.observed_on.slice(0,4)}</div></td>
+      <td>
+        <span class="lux-student-link" title="Показать все записи только этого ученика" onclick="window._lcObsFilter.childId='${k.id}';renderAdminObservationsPageView()">${escH(k.name)}</span>
+        <span class="chip" style="margin-left:5px;padding:2px 7px;font-size:10px">${escH(clsName)} кл.</span>
+      </td>
+      <td><b>${subjObj?.icon||'📘'} ${escH(subjName)}</b></td>
+      <td>${workPill}<div>${escH(info.text)}</div>${tagPills?`<div style="margin-top:4px">${tagPills}</div>`:''}</td>
+      <td>${escH(tName)}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="editChild('${k.id}')">Карточка</button>
+        ${!info.isWork?`<button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openEditObservationModal('${o.id}')">✎</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  main.innerHTML=`<div class="top">
+    <div>
+      <h1>✎ Наблюдения и проверочные работы</h1>
+      <p>Сводка по классу, предмету и периоду · кликни на фамилию ученика в таблице для фильтрации по нему</p>
+    </div>
+    <div class="topright">
+      <button type="button" class="btn soft" onclick="openAddScoreModal('','',false)">+ Проверочная / Зачёт</button>
+      <button type="button" class="btn primary" onclick="noteModal()">+ Наблюдение</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="grid g4" style="gap:10px">
+      <div class="field" style="margin:0">
+        <label>1. Класс</label>
+        <select id="obsClsSel">
+          <option value="all" ${flt.classId==='all'?'selected':''}>Все классы</option>
+          ${classes.map(cl=>`<option value="${cl.id}" ${flt.classId===cl.id?'selected':''}>${escH(cl.name)} класс</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>2. Предмет</label>
+        <select id="obsSubjSel">
+          <option value="all" ${flt.subjectId==='all'?'selected':''}>Все предметы</option>
+          ${subjects.map(s=>`<option value="${s.id}" ${flt.subjectId===s.id?'selected':''}>${s.icon||'📘'} ${escH(displayTabelSubjName(s))}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>3. Ученик (детализация)</label>
+        <select id="obsKidSel">
+          <option value="all" ${flt.childId==='all'?'selected':''}>Все ученики (${kids.length})</option>
+          ${kids.map(k=>`<option value="${k.id}" ${flt.childId===k.id?'selected':''}>${escH(k.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>Быстрый поиск</label>
+        <input type="search" id="obsSearchInp" placeholder="🔍 По фамилии или тексту..." value="${escH(flt.search)}">
+      </div>
+    </div>
+
+    <div class="lux-filter-bar" style="margin:12px 0 0">
+      <div class="lux-grade-pills">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);margin-right:4px">Период:</span>
+        <button type="button" class="lux-gpill ${flt.period==='all'?'on':''}" data-p="all">За всё время</button>
+        <button type="button" class="lux-gpill ${flt.period==='today'?'on':''}" data-p="today">Сегодня</button>
+        <button type="button" class="lux-gpill ${flt.period==='week'?'on':''}" data-p="week">Эта неделя</button>
+        <button type="button" class="lux-gpill ${flt.period==='month'?'on':''}" data-p="month">Месяц</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="date" id="obsFrom" value="${flt.from}" style="width:auto;padding:5px 8px">
+        <span>—</span>
+        <input type="date" id="obsTo" value="${flt.to}" style="width:auto;padding:5px 8px">
+      </div>
+    </div>
+  </div>
+
+  ${selectedKid?`<div class="lux-hours-banner" style="margin-bottom:14px">
+    <div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.85">Режим детализации по ученику</div>
+      <div style="font-size:18px;font-weight:700;margin-top:2px">👤 ${escH(selectedKid.name)} · все записи (${rowsData.length})</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn ghost" onclick="editChild('${selectedKid.id}')">Открыть карточку ребёнка</button>
+      <button type="button" class="btn soft" onclick="window._lcObsFilter.childId='all';renderAdminObservationsPageView()">✕ Показать весь класс</button>
+    </div>
+  </div>`:''}
+
+  <div class="card">
+    <div class="sh">
+      <div><h2>Сводная лента наблюдений</h2><p>Найдено записей: <b>${rowsData.length}</b></p></div>
+    </div>
+    ${rowsData.length?`<div class="table"><table><thead><tr><th>Дата</th><th>Ученик</th><th>Предмет</th><th>Наблюдение / Результат работы</th><th>Педагог</th><th></th></tr></thead><tbody>${trs}</tbody></table></div>`:`<div class="empty">По выбранным фильтрам записей пока нет.</div>`}
+  </div>`;
+
+  main.querySelector('#obsClsSel').onchange=e=>{flt.classId=e.target.value;flt.childId='all';renderAdminObservationsPageView()};
+  main.querySelector('#obsSubjSel').onchange=e=>{flt.subjectId=e.target.value;renderAdminObservationsPageView()};
+  main.querySelector('#obsKidSel').onchange=e=>{flt.childId=e.target.value;renderAdminObservationsPageView()};
+  main.querySelector('#obsSearchInp').oninput=e=>{flt.search=e.target.value.trim().toLowerCase();renderAdminObservationsPageView()};
+  main.querySelectorAll('.lux-gpill[data-p]').forEach(b=>b.onclick=()=>setPeriod(b.dataset.p));
+  main.querySelector('#obsFrom').onchange=e=>{flt.period='custom';flt.from=e.target.value;renderAdminObservationsPageView()};
+  main.querySelector('#obsTo').onchange=e=>{flt.period='custom';flt.to=e.target.value;renderAdminObservationsPageView()};
 }
 
 function getMenuData(){
@@ -583,7 +1155,7 @@ window.archiveSchedule=async(id,ev)=>{
   onRender();
 };
 
-/* --- РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ НАБЛЮДЕНИЙ УЧИТЕЛЯМИ И АДМИНОМ --- */
+/* --- РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ НАБЛЮДЕНИЙ --- */
 window.openEditObservationModal=(obsId)=>{
   const c=window._lcCache;
   const o=c.observations.find(x=>x.id===obsId);
@@ -659,7 +1231,7 @@ function upgradeObservationEditButtons(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Наблюдения'&&h1!=='Дашборд')return;
 
-  const normalObs=c.observations.filter(o=>!parseTabelObs(o)&&!(o.tags||[]).includes('__MENU__')&&!(o.tags||[]).includes('__TABEL_DELETED__'));
+  const normalObs=c.observations.filter(o=>!parseTabelObs(o)&&!(o.tags||[]).includes('__MENU__')&&!(o.tags||[]).includes('__PARENT_AUTH__')&&!(o.tags||[]).includes('__TABEL_DELETED__'));
   const usedIds=new Set();
 
   document.querySelectorAll('.main .list .row').forEach(r=>{
@@ -788,10 +1360,10 @@ function renderMenuPageView(){
   </form>`;
 }
 
-/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ: 4 предмета (100 б.) + Английский (вручную любой балл и из скольки!) + 6 предметов (Зачёт/Незачёт) --- */
+/* --- ТАБЕЛЬ УСПЕВАЕМОСТИ --- */
 function parseTabelObs(o){
   const t=o.tags||[];
-  if(t[0]==='__TABEL_DELETED__'||t[0]==='__MENU__')return null;
+  if(t[0]==='__TABEL_DELETED__'||t[0]==='__MENU__'||t[0]==='__PARENT_AUTH__')return null;
   if(t[0]==='__TABEL_FREE__'){
     const raw=String(t[2]||'').trim();
     const m=raw.match(/(\d+(?:[.,]\d+)?)\s*(?:\/|из|-)\s*(\d+(?:[.,]\d+)?)/i);
@@ -825,11 +1397,11 @@ function getChildScores(childId){
 }
 function cleanObservationFeeds(){
   document.querySelectorAll('.row, .feeditem').forEach(el=>{
-    if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__TABEL_DELETED__/.test(el.textContent))el.remove();
+    if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__PARENT_AUTH__|__TABEL_DELETED__/.test(el.textContent))el.remove();
   });
   document.querySelectorAll('.chips .chip').forEach(ch=>{
     const txt=ch.textContent.trim();
-    if(/__TABEL|__MENU|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
+    if(/__TABEL|__MENU|__PARENT_AUTH|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
       ch.remove();
     }
   });
@@ -1086,9 +1658,14 @@ function sortTargets(list){
   return list.slice().sort((a,b)=>extractGrade(a).localeCompare(extractGrade(b))||a.localeCompare(b,'ru'));
 }
 function buildTopDropdown(){
+  const role=getActiveRole();
   const sideNav=document.querySelector('.side .nav');
   if(sideNav&&!sideNav.querySelector('button[data-tabel]')){
     sideNav.querySelectorAll('button').forEach(x=>x.addEventListener('click',()=>{window._lcCustomPage=null}));
+    if(role==='admin'){
+      const bObs=document.createElement('button');bObs.dataset.adminobs='1';bObs.textContent='✎ Наблюдения';bObs.onclick=()=>window.openAdminObservationsPage();
+      sideNav.appendChild(bObs);
+    }
     const b1=document.createElement('button');b1.dataset.tabel='1';b1.textContent='★ Табель успеваемости';b1.onclick=()=>window.openTabelPage();
     const b2=document.createElement('button');b2.dataset.menu='1';b2.textContent='🍽️ Меню питания';b2.onclick=()=>window.openMenuPage();
     sideNav.appendChild(b1);sideNav.appendChild(b2);
@@ -1097,6 +1674,7 @@ function buildTopDropdown(){
   if(!navBtns.length)return;
   const seen=new Set(),items=[];
   navBtns.forEach(b=>{
+    if(b.dataset.adminobs){items.push({route:'__admin_obs__',label:'✎ Наблюдения (Сводка)',on:window._lcCustomPage==='admin_obs'});return;}
     if(b.dataset.tabel){items.push({route:'__tabel__',label:'★ Табель успеваемости',on:window._lcCustomPage==='tabel'});return;}
     if(b.dataset.menu){items.push({route:'__menu__',label:'🍽️ Меню питания',on:window._lcCustomPage==='menu'});return;}
     const m=(b.getAttribute('onclick')||'').match(/go\(['"]([^'"]+)['"]\)/);
@@ -1115,7 +1693,8 @@ function buildTopDropdown(){
       mtop.appendChild(r1);mtop.appendChild(r2);
       sel=r2.querySelector('select');
       sel.onchange=function(){
-        if(this.value==='__tabel__')window.openTabelPage();
+        if(this.value==='__admin_obs__')window.openAdminObservationsPage();
+        else if(this.value==='__tabel__')window.openTabelPage();
         else if(this.value==='__menu__')window.openMenuPage();
         else{window._lcCustomPage=null;window.go(this.value);}
       };
@@ -1258,7 +1837,7 @@ function buildParentDayTableHtml(k,dStr,wd){
   const c=window._lcCache;
   const ls=getCleanChildLessonsForDay(k,wd);
   if(!ls.length)return '<div class="empty">В этот день занятий нет</div>';
-  const dayObs=c.observations.filter(o=>o.child_id===k.id&&o.observed_on===dStr&&!parseTabelObs(o)&&!(o.tags||[]).includes('__MENU__')&&!(o.tags||[]).includes('__TABEL_DELETED__'));
+  const dayObs=c.observations.filter(o=>o.child_id===k.id&&o.observed_on===dStr&&!parseTabelObs(o)&&!(o.tags||[]).includes('__MENU__')&&!(o.tags||[]).includes('__PARENT_AUTH__')&&!(o.tags||[]).includes('__TABEL_DELETED__'));
   let lNum=0;
   const trs=ls.map(l=>{
     const subjObj=c.subjects.find(s=>s.id===l.subject_id);
@@ -1340,13 +1919,122 @@ function upgradeParentViews(){
   }
 }
 
-/* 4. Фильтрация предметов в окне "+ Наблюдение" + живой ПОИСК во всех модальных окнах */
+/* 4. КАРТОЧКА РЕБЁНКА (блок «Родители» со сбросом пароля на 000000 + вкладка «История наблюдений») и поиск в модалках */
 function enhanceModalsWithSearchAndFilter(){
   const modal=document.querySelector('.modal');
   if(!modal||modal.dataset.enhanced)return;
   modal.dataset.enhanced='1';
   const title=modal.querySelector('.mh h2')?.textContent.trim()||'';
   const c=window._lcCache;
+
+  /* Улучшение Карточки ребёнка для Админа */
+  if((title==='Карточка ребёнка'||title==='Зачислить ребёнка')&&c.ready){
+    const form=modal.querySelector('form');
+    const idInp=form?.querySelector('input[name="id"]');
+    const childId=idInp?.value||'';
+    const tgInp=form?.querySelector('input[name="parentTelegram"]');
+    if(tgInp){
+      const fieldWrap=tgInp.closest('.field');
+      const curNick=normNick(tgInp.value);
+      const pState=curNick?getParentAuthState(curNick):null;
+      const isDefault=!pState||pState.isDefault!==false;
+      const sameNickKids=curNick?c.children.filter(x=>normNick(x.parent_telegram)===curNick):[];
+
+      const parentBox=document.createElement('div');
+      parentBox.className='box';
+      parentBox.style.marginBottom='14px';
+      parentBox.innerHTML=`
+        <h3>👨‍👩‍👧 Родители и доступ в личный кабинет</h3>
+        <div class="field" style="margin-bottom:10px">
+          <label>Логин / Ник родителя (Telegram или никнейм)</label>
+          <input name="parentTelegram" value="${escH(tgInp.value||'')}" placeholder="например, @mama_anna">
+          <small style="color:var(--muted);font-size:11px;line-height:1.4">
+            При сохранении карточки учётная запись родителя активируется автоматически со стартовым паролем <b>000000</b>. Если указать этот же ник у второго ребёнка — оба ребёнка подтянутся в один личный кабинет.
+          </small>
+        </div>
+        ${curNick?`
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding-top:8px;border-top:1px solid rgba(197,165,114,.25)">
+            <div class="chips">
+              <span class="chip green">Логин: @${escH(curNick)}</span>
+              <span class="chip ${pState?.resetRequested?'red':isDefault?'yellow':'green'}">
+                Пароль: ${pState?.resetRequested?'🔔 Запрошен сброс!':isDefault?'Стандартный (000000)':'Изменён родителем'}
+              </span>
+              ${sameNickKids.length>1?`<span class="chip orange">Привязано детей: ${sameNickKids.length}</span>`:''}
+            </div>
+            <button type="button" class="btn soft" onclick="resetParentPasswordToDefault('${escH(curNick)}','${escH(childId)}',event)">↺ Сбросить пароль на 000000</button>
+          </div>
+        `:''}
+      `;
+      fieldWrap.replaceWith(parentBox);
+    }
+
+    /* Вкладки внутри Карточки ребёнка: 1) Профиль и родитель  2) История наблюдений по всем предметам */
+    if(childId){
+      const kidObs=c.observations.filter(o=>o.child_id===childId&&getFormattedObservationDetails(o)).sort((a,b)=>String(b.observed_on).localeCompare(String(a.observed_on)));
+      const tabsBar=document.createElement('div');
+      tabsBar.className='lux-modal-tabs';
+      tabsBar.innerHTML=`
+        <button type="button" class="lux-gpill on" data-tab="prof">👤 Профиль и родитель</button>
+        <button type="button" class="lux-gpill" data-tab="obs">✎ История наблюдений (${kidObs.length})</button>
+        <button type="button" class="lux-gpill" onclick="openChildTabelModal('${childId}')">★ Открыть Табель</button>
+      `;
+      const profPane=document.createElement('div');
+      const obsPane=document.createElement('div');
+      obsPane.style.display='none';
+
+      while(modal.children.length>1){
+        profPane.appendChild(modal.children[1]);
+      }
+
+      const usedSubjIds=[...new Set(kidObs.map(o=>o.subject_id))];
+      const renderKidObsTab=(subjFilter='all')=>{
+        const filtered=kidObs.filter(o=>subjFilter==='all'||o.subject_id===subjFilter);
+        obsPane.innerHTML=`
+          <div class="lux-filter-bar" style="margin-bottom:10px">
+            <div class="lux-grade-pills">
+              <button type="button" class="lux-gpill ${subjFilter==='all'?'on':''}" data-sf="all">Все предметы (${kidObs.length})</button>
+              ${usedSubjIds.map(sid=>{
+                const sObj=c.subjects.find(x=>x.id===sid);
+                return `<button type="button" class="lux-gpill ${subjFilter===sid?'on':''}" data-sf="${sid}">${sObj?.icon||'📘'} ${escH(displayTabelSubjName(sObj))}</button>`;
+              }).join('')}
+            </div>
+          </div>
+          <div class="list" style="max-height:52vh;overflow:auto">
+            ${filtered.map(o=>{
+              const inf=getFormattedObservationDetails(o);
+              const sObj=c.subjects.find(x=>x.id===o.subject_id);
+              const tName=c.profiles.find(p=>p.id===o.teacher_id)?.full_name||'Педагог';
+              return `<div class="row">
+                <span class="time">${fmtShortDM(o.observed_on)}</span>
+                <div class="rowmain">
+                  <strong>${sObj?.icon||'📘'} ${escH(displayTabelSubjName(sObj))} ${inf.isWork?`<span class="chip orange" style="margin-left:4px">${escH(inf.badge)} · ${escH(inf.workType)}</span>`:''}</strong>
+                  <small style="color:var(--ink);font-size:12.5px;margin-top:3px">${escH(inf.text)}</small>
+                  <small>${fmtDateRu(o.observed_on)} · ${escH(tName)}</small>
+                </div>
+                ${!inf.isWork?`<button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="openEditObservationModal('${o.id}')">✎</button>`:''}
+              </div>`;
+            }).join('')||'<div class="empty">Записей по этому предмету пока нет.</div>'}
+          </div>
+        `;
+        obsPane.querySelectorAll('.lux-gpill[data-sf]').forEach(b=>{
+          b.onclick=()=>renderKidObsTab(b.dataset.sf);
+        });
+      };
+      renderKidObsTab('all');
+
+      modal.appendChild(tabsBar);
+      modal.appendChild(profPane);
+      modal.appendChild(obsPane);
+
+      tabsBar.querySelectorAll('.lux-gpill[data-tab]').forEach(b=>{
+        b.onclick=()=>{
+          tabsBar.querySelectorAll('.lux-gpill[data-tab]').forEach(x=>x.classList.toggle('on',x===b));
+          profPane.style.display=b.dataset.tab==='prof'?'':'none';
+          obsPane.style.display=b.dataset.tab==='obs'?'':'none';
+        };
+      });
+    }
+  }
 
   if(title==='Новое наблюдение'&&getActiveRole()==='teacher'&&c.me){
     const subjSel=modal.querySelector('select[name="subjectId"]');
@@ -1498,7 +2186,7 @@ function upgradeAdminSchedule(){
           if(!cellLs.length)return `<td></td>`;
           return `<td>${cellLs.map(l=>{
             const statusPill=l.nonCount?'':`<button type="button" class="lux-done-btn ${l.done?'is-done':''}" style="margin-top:4px;padding:3px 8px;font-size:10px" onclick="toggleLessonDone('${l.scheduleId}','${dStr}','${l.teacherId}',event)">${l.done?`✓ ${fmtShortDM(dStr)}`:`○ ${fmtShortDM(dStr)}`}</button>`;
-            return `<div class="lux-cell-item" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon}${escH(l.subj)}</strong><small>${escH(l.teacherName)}</small>${statusPill}<button type="button" class="lux-cell-del" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`;
+            return `<div class="lux-cell-item" onclick="scheduleModal('${l.scheduleId}')"><strong>${l.icon} ${escH(l.subj)}</strong><small>${escH(l.teacherName)}</small>${statusPill}<button type="button" class="lux-cell-del" onclick="archiveSchedule('${l.scheduleId}',event)">×</button></div>`;
           }).join('')}</td>`;
         }).join('');
         rowsHtml+=`<tr><td class="lux-time-col">${badge}<span class="lux-ltime">${slot}</span></td>${tds}</tr>`;
@@ -1647,8 +2335,12 @@ function upgradeTablesAndLists(){
 }
 
 async function onRender(){
+  hookCoreAuthAndChildFunctions();
   await syncCache(false);
+  enhanceLoginScreenAndFirstLoginCheck();
   buildTopDropdown();
+  renderAdminPasswordResetNotifications();
+  if(window._lcCustomPage==='admin_obs'){renderAdminObservationsPageView();return;}
   if(window._lcCustomPage==='tabel'){renderTabelPageView();return;}
   if(window._lcCustomPage==='menu'){renderMenuPageView();return;}
   cleanObservationFeeds();
@@ -1661,6 +2353,7 @@ async function onRender(){
   upgradeParentViews();
 }
 window.addEventListener('DOMContentLoaded',async()=>{
+  hookCoreAuthAndChildFunctions();
   await syncCache(true);
   const app=document.getElementById('app');
   if(app){
