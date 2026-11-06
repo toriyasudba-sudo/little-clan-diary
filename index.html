@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:0}
 .toast{position:fixed;right:16px;bottom:16px;z-index:100;background:#1E2D22;color:#FAF7F2;border:1px solid var(--gold);padding:12px 16px;border-radius:14px;opacity:0;transform:translateY(10px);transition:.2s;font-size:12px;max-width:340px;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 
-/* Верхнее меню, фильтры, Четверти и Меню Питания */
+/* Верхнее меню, фильтры, Четверти и ДЗ */
 .mobilenav{display:none!important}
 .mobiletop{display:none}
 .mobiletop .logout{background:#F3ECE0!important;color:var(--green)!important;border:1px solid var(--gold)!important;font-weight:700}
@@ -198,7 +198,7 @@ tr:last-child td{border-bottom:0}
 .lux-meal-box small{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--orange);margin-bottom:4px}
 .lux-meal-box strong{display:block;font-family:var(--font-serif);font-size:17px;color:var(--ink);line-height:1.25}
 
-.lux-hw-box{margin-top:4px;padding:5px 9px;border-radius:9px;background:#F9F0DA;border:1px solid rgba(184,137,40,.3);color:#5E430C;font-size:12px;line-height:1.4}
+.lux-hw-box{margin-top:4px;padding:5px 9px;border-radius:9px;background:#F9F0DA;border:1px solid rgba(184,137,40,.35);color:#5E430C;font-size:12px;line-height:1.4}
 .lux-topic-line{font-size:12.5px;color:var(--ink);line-height:1.4}
 
 .lux-sched-day{margin-bottom:18px;padding:16px;border-radius:20px;background:var(--card);border:1px solid rgba(197,165,114,.32);box-shadow:var(--shadow-card)}
@@ -254,7 +254,6 @@ function fmtShortDM(dStr){const [y,m,d]=String(dStr||'').split('-');return d&&m?
 function escH(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
 function normNick(raw=''){return String(raw||'').trim().replace(/^@+/,'').toLowerCase().replace(/[^a-z0-9._-]/g,'')}
 
-/* ЧЕТВЕРТИ УЧЕБНОГО ГОДА (по умолчанию активна 2 четверть, даты можно менять в настройках) */
 const DEFAULT_QUARTERS={
   q1:{id:'q1',name:'1 четверть',label:'1 сент — 23 окт',start:'2026-09-01',end:'2026-10-23'},
   q2:{id:'q2',name:'2 четверть',label:'26 окт — 30 окт',start:'2026-10-26',end:'2026-10-30'},
@@ -290,26 +289,14 @@ window._lcSchedDay='all';
 window._lcSelectedDate=isoDate();
 window._lcCalMonth=isoDate().slice(0,7);
 window._lcShowMonthGrid=false;
-window._lcCustomPage=null; // 'tabel' | 'menu' | 'admin_obs' | 'password' | null
-window._lcActiveQuarter='q2'; // Сейчас идёт 2 четверть
+window._lcCustomPage=null;
+window._lcActiveQuarter='q2';
 window._lcMenuWeek=1;
 window._lcObsFilter={classId:'all',subjectId:'all',period:'all',from:isoDate(getMonday()),to:isoDate(addDays(getMonday(),4)),childId:'all',search:''};
 window._lcClasses=[];
 window._lcLastUid=null;
+window._lcHwMirrored=false;
 window._lcCache={ready:false,me:null,authEmail:'',authMeta:{},schedule:[],records:[],attendance:[],subs:[],profiles:[],classes:[],subjects:[],groups:[],childGroups:[],children:[],parentLinks:[],observations:[]};
-
-/* Перехват штатной навигации window.go, чтобы меню НИКОГДА не зависало на кастомных вкладках */
-function hookNavigationGo(){
-  if(typeof window.go==='function'&&!window.go._luxHooked){
-    const origGo=window.go;
-    const wrappedGo=function(r){
-      window._lcCustomPage=null;
-      return origGo(r);
-    };
-    wrappedGo._luxHooked=true;
-    window.go=wrappedGo;
-  }
-}
 
 function getActiveRole(){
   const b=document.querySelector('.mobiletop .badge, .top .badge')?.textContent.trim()||'';
@@ -403,13 +390,109 @@ async function syncCache(force=false){
       parentLinks:plR.data||[],observations:obsR.data||[]
     };
     if(clsR.data)window._lcClasses=clsR.data.filter(x=>x.active).map(x=>x.name);
+    if(meR.data?.role==='teacher'||meR.data?.role==='admin'){
+      autoMirrorExistingHomeworkToChildren();
+    }
   }catch(e){console.warn('Cache sync:',e)}
 }
 
 /* =========================================================================
-   ОБЩЕШКОЛЬНОЕ ХРАНИЛИЩЕ КОНФИГУРАЦИИ (ЧТОБЫ РОДИТЕЛИ ВИДЕЛИ МЕНЮ И ЧЕТВЕРТИ)
-   Таблица subjects видна ВСЕМ ролям (админ, учитель, родитель) без блокировок RLS
+   СИНХРОНИЗАЦИЯ ТЕМ И ДЗ («ЧТО ЗАДАНО») В ДОСТУПНЫЕ ДЛЯ РОДИТЕЛЕЙ ЗАПИСИ ДЕТЕЙ
+   Родители в Supabase видят таблицу observations по своему child_id!
    ========================================================================= */
+async function mirrorSingleHomeworkToChildren(scheduleId,dateStr,topic,hwNote){
+  const c=window._lcCache;
+  if(!c.me)return;
+  const l=c.schedule.find(x=>x.id===scheduleId);
+  if(!l)return;
+  const kids=getKidsForScheduleLesson(l);
+  if(!kids.length)return;
+  const client=await getSb();
+  const cleanTopic=(topic&&topic!=='Урок проведён')?String(topic).trim():'';
+  const cleanHw=(hwNote&&!String(hwNote).startsWith('Подтверждено'))?String(hwNote).trim():'';
+  if(!cleanTopic&&!cleanHw)return;
+
+  /* Удаляем старые копии ДЗ по этому уроку и дате, чтобы не было дублей */
+  const existingHwObs=c.observations.filter(o=>(o.tags||[])[0]==='__HW__'&&(o.tags||[])[1]===scheduleId&&o.observed_on===dateStr);
+  if(existingHwObs.length){
+    await client.from('observations').delete().in('id',existingHwObs.map(x=>x.id));
+  }
+  const rows=kids.map(k=>({
+    school_id:c.me.school_id,
+    child_id:k.id,
+    subject_id:l.subject_id,
+    schedule_id:scheduleId,
+    teacher_id:c.me.id,
+    observed_on:dateStr,
+    note:cleanHw,
+    tags:['__HW__',scheduleId,cleanTopic,cleanHw]
+  }));
+  await client.from('observations').insert(rows);
+}
+
+/* Автоматический перенос уже существующих записей учителей из lesson_records в карточки детей */
+async function autoMirrorExistingHomeworkToChildren(){
+  if(window._lcHwMirrored)return;
+  window._lcHwMirrored=true;
+  try{
+    const c=window._lcCache;
+    if(!c.me||!c.records.length)return;
+    const meaningfulRecs=c.records.filter(r=>(r.topic&&r.topic!=='Урок проведён')||(r.note&&!String(r.note).startsWith('Подтверждено')));
+    if(!meaningfulRecs.length)return;
+    const client=await getSb();
+    const toInsert=[];
+    meaningfulRecs.forEach(r=>{
+      const l=c.schedule.find(x=>x.id===r.schedule_id);
+      if(!l)return;
+      const kids=getKidsForScheduleLesson(l);
+      const cleanTopic=(r.topic&&r.topic!=='Урок проведён')?String(r.topic).trim():'';
+      const cleanHw=(r.note&&!String(r.note).startsWith('Подтверждено'))?String(r.note).trim():'';
+      kids.forEach(k=>{
+        const already=c.observations.some(o=>o.child_id===k.id&&o.observed_on===r.lesson_date&&(o.tags||[])[0]==='__HW__'&&(o.tags||[])[1]===r.schedule_id);
+        if(!already){
+          toInsert.push({
+            school_id:c.me.school_id,child_id:k.id,subject_id:l.subject_id,schedule_id:r.schedule_id,
+            teacher_id:r.teacher_id||c.me.id,observed_on:r.lesson_date,note:cleanHw,
+            tags:['__HW__',r.schedule_id,cleanTopic,cleanHw]
+          });
+        }
+      });
+    });
+    if(toInsert.length){
+      await client.from('observations').insert(toInsert);
+      const {data:obsR}=await client.from('observations').select('*');
+      if(obsR)window._lcCache.observations=obsR;
+    }
+  }catch(e){console.warn('Auto mirror HW:',e)}
+}
+
+/* Универсальный поиск Темы и ДЗ для родителя (проверяет и lesson_records, и синхронизированные записи ребёнка __HW__) */
+function getLessonTopicAndHwForChild(l,childObj,dStr){
+  const c=window._lcCache;
+  let topic='',hw='';
+
+  /* 1. Проверяем __HW__ в observations этого ребёнка (100% доступно родителю через RLS!) */
+  const hwObsExact=c.observations.find(o=>o.child_id===childObj.id&&(o.tags||[])[0]==='__HW__'&&((o.tags||[])[1]===l.id||o.subject_id===l.subject_id)&&o.observed_on===dStr);
+  const mon=isoDate(getMonday(new Date(dStr+'T12:00:00')));
+  const sun=isoDate(addDays(new Date(mon+'T12:00:00'),6));
+  const hwObsWeek=hwObsExact||c.observations.find(o=>o.child_id===childObj.id&&(o.tags||[])[0]==='__HW__'&&((o.tags||[])[1]===l.id)&&(o.observed_on>=mon&&o.observed_on<=sun));
+  if(hwObsWeek){
+    topic=hwObsWeek.tags?.[2]||'';
+    hw=hwObsWeek.tags?.[3]||hwObsWeek.note||'';
+  }
+
+  /* 2. Дополнительно проверяем lesson_records (если доступно) */
+  if(!topic&&!hw){
+    const rec=c.records.find(r=>r.schedule_id===l.id&&r.lesson_date===dStr)||
+              c.records.find(r=>r.schedule_id===l.id&&r.lesson_date>=mon&&r.lesson_date<=sun&&((r.topic&&r.topic!=='Урок проведён')||(r.note&&!String(r.note).startsWith('Подтверждено'))));
+    if(rec){
+      if(rec.topic&&rec.topic!=='Урок проведён')topic=rec.topic;
+      if(rec.note&&!String(rec.note).startsWith('Подтверждено'))hw=rec.note;
+    }
+  }
+  return {topic,hw};
+}
+
 function getSchoolConfig(codeKey,defaultObj){
   let res=JSON.parse(JSON.stringify(defaultObj));
   try{
@@ -434,7 +517,6 @@ async function saveSchoolConfig(codeKey,obj){
   await syncCache(true);
 }
 
-/* Четверти и определение четверти по дате или тегу */
 function getQuartersConfig(){
   return getSchoolConfig('__lc_quarters__',DEFAULT_QUARTERS);
 }
@@ -449,7 +531,7 @@ function detectQuarterByDate(dStr){
 }
 
 /* =========================================================================
-   МОДУЛЬ УПРАВЛЕНИЯ ЛОГИНАМИ ПЕДАГОГОВ ПРЯМО С ДАШБОРДА АДМИНА
+   УПРАВЛЕНИЕ ЛОГИНАМИ ПЕДАГОГОВ С ДАШБОРДА АДМИНА
    ========================================================================= */
 function getTeacherLoginMap(){
   return getSchoolConfig('__lc_tlogins__',{});
@@ -481,12 +563,12 @@ window.openTeacherLoginModal=(tid)=>{
       </div>
       <div class="field">
         <label>Логин для входа (латиницей)</label>
-        <input name="login" required value="${escH(login)}" placeholder="Например: maria илиivanova">
+        <input name="login" required value="${escH(login)}" placeholder="Например: maria">
         <small style="color:var(--muted);font-size:11px">По этому логину преподаватель входит в дневник</small>
       </div>
       <div class="field">
-        <label>Новый пароль (необязательно — оставьте пустым, если менять не нужно)</label>
-        <input type="password" name="password" minlength="6" placeholder="Минимум 6 символов (если нужен новый пароль)">
+        <label>Новый пароль (оставьте пустым, если менять не нужно)</label>
+        <input type="password" name="password" minlength="6" placeholder="Минимум 6 символов">
       </div>
       <div class="actions">
         <button type="button" class="btn ghost" onclick="document.getElementById('tLoginModal').remove()">Отмена</button>
@@ -512,7 +594,6 @@ window.saveTeacherLoginFromDash=async(e,tid)=>{
   const prev=map[tid]||{};
   const email=newLogin+'@littleclan.local';
 
-  /* Если задан пароль или создаётся новый вход — регистрируем/обновляем в Auth */
   if(newPass.length>=6){
     const {data:adminSess}=await mainSb.auth.getSession();
     const su=await isoSb.auth.signUp({email,password:newPass});
@@ -526,14 +607,9 @@ window.saveTeacherLoginFromDash=async(e,tid)=>{
     }
   }
 
-  map[tid]={
-    login:newLogin,
-    authEmail:prev.authEmail||email,
-    customPass:newPass||prev.customPass||''
-  };
+  map[tid]={login:newLogin,authEmail:prev.authEmail||email,customPass:newPass||prev.customPass||''};
   await saveSchoolConfig('__lc_tlogins__',map);
 
-  /* Сохраняем чистое имя + (@логин) в профиль педагога */
   const fullNameWithLogin=`${cleanName} (@${newLogin})`;
   const {error}=await mainSb.from('profiles').update({full_name:fullNameWithLogin}).eq('id',tid);
   if(error)return alert('Ошибка обновления профиля: '+error.message);
@@ -545,7 +621,6 @@ window.saveTeacherLoginFromDash=async(e,tid)=>{
   alert(`Логин педагога обновлён: @${newLogin}`);
 };
 
-/* Блок быстрой смены логинов педагогов прямо на Дашборде админа */
 function upgradeAdminDashboardTeachers(){
   if(getActiveRole()!=='admin'||!window._lcCache.ready)return;
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
@@ -568,14 +643,14 @@ function upgradeAdminDashboardTeachers(){
         <span class="avatar">${cleanName.split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()}</span>
         <div class="rowmain">
           <strong>${escH(cleanName)}</strong>
-          <small>Логин для входа: <b style="color:var(--green)">${login?'@'+escH(login):'не указан (нажмите Изменить)'}</b> · ${lessonsCnt} ур./нед.</small>
+          <small>Логин: <b style="color:var(--green)">${login?'@'+escH(login):'не указан'}</b> · ${lessonsCnt} ур./нед.</small>
         </div>
         <button type="button" class="btn soft" onclick="openTeacherLoginModal('${t.id}')">🔑 Изменить логин</button>
       </div>`;
     }).join('')||'<div class="empty">Педагоги пока не созданы</div>';
 
     box.innerHTML=`<div class="sh">
-      <div><h2>🔑 Преподаватели: имена и логины для входа</h2><p>Нажмите «Изменить логин», чтобы подписать или поменять логин любого педагога</p></div>
+      <div><h2>🔑 Преподаватели: имена и логины для входа</h2><p>Нажмите «Изменить логин», чтобы задать или поменять логин любого педагога</p></div>
       <button type="button" class="btn primary" onclick="teacherModal()">+ Новый педагог</button>
     </div>
     <div class="grid g2">${rows}</div>`;
@@ -608,9 +683,9 @@ function upgradeAdminDashboardTeachers(){
 }
 
 /* =========================================================================
-   ТЕМА УРОКА И ДОМАШНЕЕ ЗАДАНИЕ («ЧТО ЗАДАНО») — ЧТОБЫ ВСЕГДА ПОЯВЛЯЛОСЬ У РОДИТЕЛЯ
+   ОКНО «ТЕМА УРОКА И ЧТО ЗАДАНО (ДЗ)» — ПРИНУДИТЕЛЬНАЯ ПРИВЯЗКА ПОСЛЕ ЗАГРУЗКИ BODY
    ========================================================================= */
-window.lessonTopicModal=(sid,date=isoDate())=>{
+function customLessonTopicModal(sid,date=isoDate()){
   const c=window._lcCache;
   const l=c.schedule.find(x=>x.id===sid);
   if(!l)return;
@@ -623,7 +698,7 @@ window.lessonTopicModal=(sid,date=isoDate())=>{
   const d=document.createElement('div');d.id='modal';d.className='modalbg';
   d.innerHTML=`<div class="modal" onclick="event.stopPropagation()">
     <div class="mh"><h2>📖 Тема урока и Что задано</h2><button class="x" onclick="closeModal()">×</button></div>
-    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">Всё, что вы напишете здесь, <b>сразу появится у родителей</b> в расписании этого дня.</p>
+    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">Всё, что вы напишете здесь, <b>сразу появится у всех детей и родителей</b> этого класса/группы.</p>
     <form onsubmit="saveLessonTopic(event)">
       <input type="hidden" name="sid" value="${escH(sid)}">
       <div class="formgrid">
@@ -635,19 +710,19 @@ window.lessonTopicModal=(sid,date=isoDate())=>{
         <input name="topic" required value="${escH(curTopic)}" placeholder="Например: Сложение двузначных чисел / Безударные гласные">
       </div>
       <div class="field">
-        <label>2. Что задано (Домашнее задание / комментарий для родителей)</label>
+        <label>2. Что задали (Домашнее задание / комментарий для детей и родителей)</label>
         <textarea name="note" placeholder="Например: Рабочая тетрадь стр. 14 №2, прочитать рассказ...">${escH(curHw)}</textarea>
       </div>
       <div class="actions">
         <button type="button" class="btn ghost" onclick="closeModal()">Отмена</button>
-        <button type="submit" class="btn primary">✓ Сохранить (показать родителям)</button>
+        <button type="submit" class="btn primary">✓ Сохранить и отправить детям</button>
       </div>
     </form>
   </div>`;
   d.onclick=()=>d.remove();document.body.appendChild(d);
-};
+}
 
-window.saveLessonTopic=async(e)=>{
+async function customSaveLessonTopic(e){
   e.preventDefault();
   const f=new FormData(e.target);
   const sid=f.get('sid');
@@ -672,7 +747,10 @@ window.saveLessonTopic=async(e)=>{
   }
   if(res.error)return alert('Ошибка сохранения темы: '+res.error.message);
 
-  /* Также ставим отметку "Был" детям урока, чтобы день сразу считался проведённым */
+  /* Дублируем ДЗ и тему напрямую в карточки детей (observations с тегом __HW__), чтобы родители 100% видели! */
+  await mirrorSingleHomeworkToChildren(sid,date,topic,note);
+
+  /* Ставим отметку "Был" детям урока */
   const l=c.schedule.find(x=>x.id===sid);
   const kids=getKidsForScheduleLesson(l);
   if(kids.length){
@@ -684,18 +762,21 @@ window.saveLessonTopic=async(e)=>{
   await syncCache(true);
   if(window.restoreSubject)await window.restoreSubject('00000000-0000-0000-0000-000000000000');
   onRender();
-};
+}
 
-/* Ищем запись учителя к уроку: сначала за точную дату, а если учитель вписал на другой день этой же недели — берём свежую запись этого урока за неделю */
-function findLessonRecordForParent(scheduleId,dStr){
-  const c=window._lcCache;
-  const exact=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date===dStr);
-  if(exact&&( (exact.topic&&exact.topic!=='Урок проведён') || (exact.note&&!String(exact.note).startsWith('Подтверждено')) ))return exact;
-  /* Проверяем записи этого же урока (schedule_id) с непустой темой/ДЗ за текущую неделю */
-  const mon=isoDate(getMonday(new Date(dStr+'T12:00:00')));
-  const fri=isoDate(addDays(new Date(mon+'T12:00:00'),6));
-  const weekRec=c.records.find(r=>r.schedule_id===scheduleId&&r.lesson_date>=mon&&r.lesson_date<=fri&&((r.topic&&r.topic!=='Урок проведён')||(r.note&&!String(r.note).startsWith('Подтверждено'))));
-  return weekRec||exact||null;
+/* Принудительно устанавливаем наши функции поверх старых функций из <body> */
+function hookNavigationAndModals(){
+  if(typeof window.go==='function'&&!window.go._luxHooked){
+    const origGo=window.go;
+    const wrappedGo=function(r){
+      window._lcCustomPage=null;
+      return origGo(r);
+    };
+    wrappedGo._luxHooked=true;
+    window.go=wrappedGo;
+  }
+  window.lessonTopicModal=customLessonTopicModal;
+  window.saveLessonTopic=customSaveLessonTopic;
 }
 
 /* =========================================================================
@@ -909,8 +990,6 @@ function interceptLoginForm(){
     const rawLogin=document.getElementById('email')?.value.trim()||'';
     const enteredPass=document.getElementById('pass')?.value||'';
     const nick=normNick(rawLogin);
-
-    /* Проверяем, не переименован ли логин педагога в карте логинов */
     const tMap=getTeacherLoginMap();
     const mappedTeacher=Object.values(tMap).find(x=>normNick(x.login)===nick);
     const email=mappedTeacher?.authEmail||(rawLogin.includes('@')&&!rawLogin.startsWith('@')?rawLogin.toLowerCase():(nick+'@littleclan.local'));
@@ -932,9 +1011,7 @@ function interceptLoginForm(){
       }
     }
     if(error||!data?.user)return alert('Не удалось войти: проверьте логин и пароль.');
-    if(mappedTeacher?.authEmail){
-      document.getElementById('email').value=mappedTeacher.authEmail;
-    }
+    if(mappedTeacher?.authEmail)document.getElementById('email').value=mappedTeacher.authEmail;
     await window.doLogin(e);
   });
 
@@ -992,7 +1069,7 @@ function renderAdminObservationsView(){
 
   const allObs=c.observations.filter(o=>{
     const t0=(o.tags||[])[0];
-    if(['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__'].includes(t0))return false;
+    if(['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__','__HW__'].includes(t0))return false;
     const k=c.children.find(ch=>ch.id===o.child_id);
     if(!k||!k.active)return false;
     if(flt.classId!=='all'&&k.class_id!==flt.classId)return false;
@@ -1126,7 +1203,8 @@ function getKidsForScheduleLesson(l){
 function isLessonDone(scheduleId,dateStr){
   const c=window._lcCache;
   return c.records.some(r=>r.schedule_id===scheduleId&&r.lesson_date===dateStr)||
-         c.attendance.some(a=>a.schedule_id===scheduleId&&a.lesson_date===dateStr);
+         c.attendance.some(a=>a.schedule_id===scheduleId&&a.lesson_date===dateStr)||
+         c.observations.some(o=>(o.tags||[])[0]==='__HW__'&&(o.tags||[])[1]===scheduleId&&o.observed_on===dateStr);
 }
 function effTeacher(l,dateStr){
   const sub=window._lcCache.subs.find(s=>s.schedule_id===l.id&&s.lesson_date===dateStr);
@@ -1242,7 +1320,6 @@ window.shiftCalMonth=(delta)=>{
   onRender();
 };
 
-/* Безопасное подтверждение урока (НЕ стирает написанную учителем тему и домашнее задание!) */
 window.toggleLessonDone=async(scheduleId,dateStr,teacherIdOverride,ev)=>{
   if(ev)ev.stopPropagation();
   if(getActiveRole()==='parent')return;
@@ -1364,7 +1441,7 @@ function upgradeObservationEditButtons(){
   const h1=document.querySelector('.main .top h1')?.textContent.trim()||'';
   if(h1!=='Наблюдения'&&h1!=='Дашборд')return;
 
-  const normalObs=c.observations.filter(o=>!parseTabelObs(o)&&!['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__'].includes((o.tags||[])[0]));
+  const normalObs=c.observations.filter(o=>!parseTabelObs(o)&&!['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__','__HW__'].includes((o.tags||[])[0]));
   const usedIds=new Set();
 
   document.querySelectorAll('.main .list .row').forEach(r=>{
@@ -1392,7 +1469,7 @@ function upgradeObservationEditButtons(){
   });
 }
 
-/* --- ЦИКЛИЧНОЕ МЕНЮ ПИТАНИЯ (СОХРАНЯЕТСЯ В SUBJECTS ДЛЯ ВСЕХ РОДИТЕЛЕЙ) --- */
+/* --- ЦИКЛИЧНОЕ МЕНЮ ПИТАНИЯ --- */
 function getMenuData(){
   const cfg=getSchoolConfig('__lc_menu__',{activeWeek:1,menu:DEFAULT_MENU});
   return {menu:cfg.menu||DEFAULT_MENU,activeWeek:Number(cfg.activeWeek)||1};
@@ -1485,11 +1562,11 @@ function renderMenuPageView(){
 }
 
 /* =========================================================================
-   ТАБЕЛЬ УСПЕВАЕМОСТИ ПО ЧЕТВЕРТЯМ (1, 2, 3, 4 ЧЕТВЕРТЬ + ВЕСЬ ГОД)
+   ТАБЕЛЬ УСПЕВАЕМОСТИ ПО ЧЕТВЕРТЯМ
    ========================================================================= */
 function parseTabelObs(o){
   const t=o.tags||[];
-  if(['__TABEL_DELETED__','__MENU__','__PARENT_AUTH__'].includes(t[0]))return null;
+  if(['__TABEL_DELETED__','__MENU__','__PARENT_AUTH__','__HW__'].includes(t[0]))return null;
   const explicitQ=['q1','q2','q3','q4'].includes(t[3])?t[3]:detectQuarterByDate(o.observed_on||'');
   if(t[0]==='__TABEL_FREE__'){
     const raw=String(t[2]||'').trim();
@@ -1527,7 +1604,6 @@ function getChildScores(childId,quarterFilter=window._lcActiveQuarter){
   }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 }
 
-/* Окно настройки дат четвертей для Админа */
 window.openQuartersConfigModal=()=>{
   if(getActiveRole()!=='admin')return;
   const qs=getQuartersConfig();
@@ -1588,15 +1664,14 @@ function buildQuarterTabsHtml(onSelectFnName){
 
 function cleanObservationFeeds(){
   document.querySelectorAll('.row, .feeditem').forEach(el=>{
-    if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__PARENT_AUTH__|__TABEL_DELETED__/.test(el.textContent))el.remove();
+    if(/__TABEL__|__TABEL_FREE__|__TABEL_PF__|__MENU__|__PARENT_AUTH__|__TABEL_DELETED__|__HW__/.test(el.textContent))el.remove();
   });
   document.querySelectorAll('.chips .chip').forEach(ch=>{
     const txt=ch.textContent.trim();
-    if(/__TABEL|__MENU|__PARENT_AUTH|^(q1|q2|q3|q4)\s*·|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
+    if(/__TABEL|__MENU|__PARENT_AUTH|__HW__|^(q1|q2|q3|q4)\s*·|^(100|\d{1,2})\s*·\s*\d+$|^\d+\/\d+\s*·|^(Проверочная работа|Контрольная работа|Зачётная работа|pass|fail)\s*·/i.test(txt)){
       ch.remove();
     }
   });
-  /* Скрываем технические строки __lc_ из раздела Предметы */
   document.querySelectorAll('.main .card').forEach(c=>{
     if(c.textContent.includes('__lc_'))c.style.display='none';
   });
@@ -1869,7 +1944,6 @@ function sortTargets(list){
   return list.slice().sort((a,b)=>extractGrade(a).localeCompare(extractGrade(b))||a.localeCompare(b,'ru'));
 }
 
-/* Надёжная сборка и обработка меню на всех экранах */
 window.handleTopMenuChange=(val)=>{
   if(val==='__admin_obs__')window.openAdminObservationsPage('all');
   else if(val==='__tabel__')window.openTabelPage();
@@ -1882,7 +1956,7 @@ window.handleTopMenuChange=(val)=>{
 };
 
 function buildTopDropdown(){
-  hookNavigationGo();
+  hookNavigationAndModals();
   const sideNav=document.querySelector('.side .nav');
   const role=getActiveRole();
   if(sideNav&&!sideNav.querySelector('button[data-tabel]')){
@@ -1987,7 +2061,7 @@ function upgradeTeacherToday(){
       <td>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
           ${rightBtn}
-          <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="lessonTopicModal('${l.scheduleId}','${selDate}')">✎ Тема / ДЗ</button>
+          <button type="button" class="btn soft" style="padding:5px 10px;font-size:11px" onclick="lessonTopicModal('${l.scheduleId}','${selDate}')">✎ Тема и ДЗ</button>
           <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="openLesson('${l.scheduleId}')">Дети</button>
           <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px" onclick="noteModal('${l.scheduleId}')">+ Заметка</button>
         </div>
@@ -2058,7 +2132,7 @@ function upgradeTeacherSchedule(){
           ${l.hw?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(l.hw)}</div>`:''}
         </td>
         <td style="text-align:right;white-space:nowrap">
-          <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px;margin-right:4px" onclick="lessonTopicModal('${l.scheduleId}','${date}')">✎ Тема / ДЗ</button>
+          <button type="button" class="btn ghost" style="padding:5px 10px;font-size:11px;margin-right:4px" onclick="lessonTopicModal('${l.scheduleId}','${date}')">✎ Тема и ДЗ</button>
           ${btn}
         </td>
       </tr>`;
@@ -2074,12 +2148,12 @@ function upgradeTeacherSchedule(){
   });
 }
 
-/* 3. РОДИТЕЛЬ: Таблица расписания (показывает Тему, Что задано (ДЗ) и похвалу учителя!) */
+/* 3. РОДИТЕЛЬ: Таблица расписания + Карточка всех ДЗ и тем за неделю */
 function buildParentDayTableHtml(k,dStr,wd){
   const c=window._lcCache;
   const ls=getCleanChildLessonsForDay(k,wd);
   if(!ls.length)return '<div class="empty">В этот день занятий нет</div>';
-  const dayObs=c.observations.filter(o=>o.child_id===k.id&&o.observed_on===dStr&&!parseTabelObs(o)&&!['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__'].includes((o.tags||[])[0]));
+  const dayObs=c.observations.filter(o=>o.child_id===k.id&&o.observed_on===dStr&&!parseTabelObs(o)&&!['__MENU__','__PARENT_AUTH__','__TABEL_DELETED__','__HW__'].includes((o.tags||[])[0]));
   let lNum=0;
   const trs=ls.map(l=>{
     const subjObj=c.subjects.find(s=>s.id===l.subject_id);
@@ -2092,9 +2166,7 @@ function buildParentDayTableHtml(k,dStr,wd){
     else if(att?.status==='late')attBadge='<span class="chip yellow">Опоздал</span>';
     else if(att?.status==='absent')attBadge='<span class="chip red">Не был</span>';
 
-    const rec=findLessonRecordForParent(l.id,dStr);
-    const topicText=(rec?.topic&&rec.topic!=='Урок проведён')?rec.topic:'';
-    const hwText=(rec?.note&&!String(rec.note).startsWith('Подтверждено'))?rec.note:'';
+    const {topic,hw}=getLessonTopicAndHwForChild(l,k,dStr);
     const subjObs=dayObs.filter(o=>o.subject_id===l.subject_id);
     const praiseHtml=subjObs.map(o=>`<div style="color:var(--green);font-weight:600;margin-top:4px">✦ ${escH(o.note)}</div>`).join('');
 
@@ -2103,14 +2175,38 @@ function buildParentDayTableHtml(k,dStr,wd){
       <td><b>${subjObj?.icon||'📘'} ${escH(subjObj?.name||'Предмет')}</b></td>
       <td style="white-space:nowrap">${attBadge}</td>
       <td>
-        ${topicText?`<div class="lux-topic-line"><b>Изучали:</b> ${escH(topicText)}</div>`:''}
-        ${hwText?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(hwText)}</div>`:''}
+        ${topic?`<div class="lux-topic-line"><b>Изучали:</b> ${escH(topic)}</div>`:''}
+        ${hw?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(hw)}</div>`:''}
         ${praiseHtml}
-        ${!topicText&&!hwText&&!praiseHtml?'<span style="color:var(--muted);font-size:11.5px">—</span>':''}
+        ${!topic&&!hw&&!praiseHtml?'<span style="color:var(--muted);font-size:11.5px">—</span>':''}
       </td>
     </tr>`;
   }).join('');
   return `<div class="table"><table><thead><tr><th>Урок / Время</th><th>Предмет</th><th>Отметка</th><th>Что изучали / Что задано / Успехи</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
+function buildParentWeeklyHwCardHtml(k){
+  const c=window._lcCache;
+  const hwList=c.observations.filter(o=>o.child_id===k.id&&(o.tags||[])[0]==='__HW__').sort((a,b)=>String(b.observed_on).localeCompare(String(a.observed_on))).slice(0,12);
+  if(!hwList.length)return '';
+  const items=hwList.map(o=>{
+    const s=c.subjects.find(x=>x.id===o.subject_id);
+    const topic=o.tags?.[2]||'';
+    const hw=o.tags?.[3]||o.note||'';
+    return `<div class="row">
+      <span class="time">${fmtShortDM(o.observed_on)}</span>
+      <span class="ico">${s?.icon||'📘'}</span>
+      <div class="rowmain">
+        <strong>${escH(s?.name||'Предмет')}</strong>
+        ${topic?`<div class="lux-topic-line"><b>Изучали:</b> ${escH(topic)}</div>`:''}
+        ${hw?`<div class="lux-hw-box"><b>📌 Задано:</b> ${escH(hw)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<section class="section card lux-parent-hw-summary">
+    <div class="sh"><div><h2>📚 Что изучали и что задали</h2><p>Темы уроков и домашние задания от педагогов</p></div></div>
+    <div class="list">${items}</div>
+  </section>`;
 }
 
 window.refreshParentView=()=>{upgradeParentViews()};
@@ -2126,11 +2222,20 @@ function upgradeParentViews(){
     if(schedSectionCard){
       schedSectionCard.innerHTML=buildParentDayTableHtml(k,todayStr,wd);
     }
-    let mealSec=document.querySelector('.main .lux-meal-card');
-    if(!mealSec){
+    if(!document.querySelector('.main .lux-meal-card')){
       document.querySelector('.main .herochild')?.after(
         Object.assign(document.createElement('div'),{innerHTML:buildTodayMealCardHtml(todayStr)}).firstElementChild
       );
+    }
+    const hwHtml=buildParentWeeklyHwCardHtml(k);
+    let hwSec=document.querySelector('.main .lux-parent-hw-summary');
+    if(hwHtml){
+      if(!hwSec){
+        hwSec=Object.assign(document.createElement('div'),{innerHTML:hwHtml}).firstElementChild;
+        document.querySelector('.main .section.grid.g2')?.after(hwSec);
+      }else{
+        hwSec.outerHTML=hwHtml;
+      }
     }
     let sec=document.querySelector('.main .lux-parent-tabel');
     if(!sec){sec=document.createElement('section');sec.className='section card lux-parent-tabel';document.querySelector('.main')?.appendChild(sec);}
@@ -2162,6 +2267,10 @@ function upgradeParentViews(){
   }
 
   if(h1==='Неделя'){
+    const hwHtml=buildParentWeeklyHwCardHtml(k);
+    if(hwHtml&&!document.querySelector('.main .lux-parent-hw-summary')){
+      document.querySelector('.main > .grid.g2')?.after(Object.assign(document.createElement('div'),{innerHTML:hwHtml}).firstElementChild);
+    }
     let sec=document.querySelector('.main .lux-parent-tabel');
     if(!sec){sec=document.createElement('section');sec.className='section card lux-parent-tabel';document.querySelector('.main')?.appendChild(sec);}
     sec.innerHTML=buildChildTabelHtml(k.id,false,'refreshParentView');
@@ -2487,7 +2596,7 @@ function upgradeTablesAndLists(){
 }
 
 async function onRender(){
-  hookNavigationGo();
+  hookNavigationAndModals();
   interceptLoginForm();
   await syncCache(false);
   buildTopDropdown();
@@ -2507,7 +2616,7 @@ async function onRender(){
   upgradeParentViews();
 }
 window.addEventListener('DOMContentLoaded',async()=>{
-  hookNavigationGo();
+  hookNavigationAndModals();
   interceptLoginForm();
   await syncCache(true);
   const app=document.getElementById('app');
